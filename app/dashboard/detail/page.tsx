@@ -89,6 +89,85 @@ const INDICATOR_DESC: Record<number, string> = {
   15: "Kemampuan berempati dan secara gigih membela kepentingan pengguna (Tenaga Kesehatan).",
 };
 
+/* ============================================================
+   ROLE INDICATOR MATRIX
+   Indikator mana saja yang boleh dinilai tiap role.
+   ============================================================ */
+
+const ROLE_INDICATOR_MATRIX: Record<string, Set<number>> = {
+  avg_self: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+  avg_lead_po: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+  avg_sa: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+  avg_ui_ux: new Set([2, 4, 6, 7, 12, 15]),
+  avg_dev: new Set([5, 6, 7, 8, 10, 12, 13]),
+  avg_qa: new Set([3, 5, 6, 7, 10, 12, 13]),
+  avg_pm: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+};
+
+function renderRoleCell(
+  value: number | null | undefined,
+  roleKey: string,
+  indicatorId: number
+): React.ReactNode {
+  const allowed = ROLE_INDICATOR_MATRIX[roleKey];
+  if (allowed && !allowed.has(indicatorId)) {
+    return <span className="text-slate-300 text-[10px] italic select-none">N/A</span>;
+  }
+  if (value === null || value === undefined) {
+    return <span className="text-amber-400 font-semibold">-</span>;
+  }
+  return value.toFixed(1);
+}
+
+/* ============================================================
+   PEMBOBOTAN (WEIGHTING)
+   ============================================================ */
+
+const CATEGORY_WEIGHTS: Record<string, { lead: number; team: number }> = {
+  "I. Strategic & Analytical Rigor": { lead: 0.5, team: 0.5 },
+  "II. Product Rigor & Specification": { lead: 0.3, team: 0.7 },
+  "III. Operational Execution": { lead: 0.3, team: 0.7 },
+  "IV. Stakeholder & Market Advocacy": { lead: 0.6, team: 0.4 },
+};
+
+function calculateWeightedScore(row: GapAnalysis): number | null {
+  const weights = CATEGORY_WEIGHTS[row.category];
+  if (!weights) return row.actual_score;
+
+  const leadScore = row.avg_lead_po ?? null;
+
+  const teamRoles: { key: string; value: number | null }[] = [
+    { key: "avg_sa", value: row.avg_sa ?? null },
+    { key: "avg_ui_ux", value: row.avg_ui_ux ?? null },
+    { key: "avg_dev", value: row.avg_dev ?? null },
+    { key: "avg_qa", value: row.avg_qa ?? null },
+    { key: "avg_pm", value: row.avg_pm ?? null },
+  ];
+
+  const validTeamScores = teamRoles
+    .filter((r) => {
+      const allowed = ROLE_INDICATOR_MATRIX[r.key];
+      return allowed?.has(row.indicator_id) && r.value !== null;
+    })
+    .map((r) => r.value as number);
+
+  const teamAvg =
+    validTeamScores.length > 0
+      ? validTeamScores.reduce((a, b) => a + b, 0) / validTeamScores.length
+      : null;
+
+  if (leadScore !== null && teamAvg !== null) {
+    return leadScore * weights.lead + teamAvg * weights.team;
+  }
+  if (leadScore !== null) return leadScore;
+  if (teamAvg !== null) return teamAvg;
+  return null;
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+
 function getCategoryBadgeClass(category: string): string {
   return CATEGORY_COLORS[category] ?? "bg-slate-100 text-slate-800";
 }
@@ -129,15 +208,24 @@ export default function DetailPOPage() {
   const [selectedPoId, setSelectedPoId] = useState<string>(poIdFromUrl ?? "");
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
   const [periods, setPeriods] = useState<
-    Array<{ id: string; name: string; is_active: boolean; type?: string; start_date?: string; end_date?: string }>
+    Array<{
+      id: string;
+      name: string;
+      is_active: boolean;
+      type?: string;
+      start_date?: string;
+      end_date?: string;
+    }>
   >([]);
   const [gapData, setGapData] = useState<GapAnalysis[]>([]);
-  const [qualitativeNotes, setQualitativeNotes] = useState<QualitativeNote[]>([]);
+  const [qualitativeNotes, setQualitativeNotes] = useState<QualitativeNote[]>(
+    []
+  );
   const [totalRaters, setTotalRaters] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch periods + POs
+  /* ─── Fetch periods + POs ─────────────────────────────── */
   useEffect(() => {
     const fetchMeta = async () => {
       const [posRes, periodRes] = await Promise.all([
@@ -163,6 +251,7 @@ export default function DetailPOPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* ─── Fetch gap + notes + stats (WITH WEIGHTING) ──────── */
   const fetchData = useCallback(async () => {
     if (!selectedPoId || !selectedPeriodId) return;
     setLoading(true);
@@ -190,7 +279,32 @@ export default function DetailPOPage() {
       ]);
 
       if (gapRes.error) throw gapRes.error;
-      setGapData((gapRes.data as GapAnalysis[]) ?? []);
+
+      // Terapkan pembobotan
+      const rawData = (gapRes.data as GapAnalysis[]) ?? [];
+      const weightedData = rawData.map((row) => {
+        const weightedScore = calculateWeightedScore(row);
+        const gap =
+          row.avg_self !== null && weightedScore !== null
+            ? row.avg_self - weightedScore
+            : null;
+
+        return {
+          ...row,
+          actual_score: weightedScore,
+          gap_self_vs_actual: gap,
+          gap_flag:
+            gap !== null
+              ? Math.abs(gap) >= 1.5
+                ? ("critical" as const)
+                : Math.abs(gap) >= 0.75
+                  ? ("moderate" as const)
+                  : ("consistent" as const)
+              : null,
+        };
+      });
+
+      setGapData(weightedData);
       setQualitativeNotes((notesRes.data as QualitativeNote[]) ?? []);
       setTotalRaters(statsRes.count ?? 0);
     } catch (err: any) {
@@ -206,6 +320,7 @@ export default function DetailPOPage() {
     fetchData();
   }, [fetchData]);
 
+  /* ─── Derived state ───────────────────────────────────── */
   const handlePoChange = (poId: string) => {
     setSelectedPoId(poId);
     router.push(`/dashboard/detail?po=${poId}`);
@@ -213,6 +328,7 @@ export default function DetailPOPage() {
 
   const selectedPO = pos.find((p) => p.id === selectedPoId);
   const selectedPeriod = periods.find((p) => p.id === selectedPeriodId);
+  const selectedPeriodName = selectedPeriod?.name ?? "-";
 
   // Radar chart data
   const radarData = gapData.map((d) => ({
@@ -235,10 +351,15 @@ export default function DetailPOPage() {
       ? gapData.reduce((a, d) => a + (d.actual_score ?? 0), 0) / gapData.length
       : 0;
   const avgGap = avgSelf - avgTim;
-  const criticalCount = gapData.filter((d) => d.gap_flag === "critical").length;
-  const moderateCount = gapData.filter((d) => d.gap_flag === "moderate").length;
-  const consistentCount = gapData.filter((d) => d.gap_flag === "consistent").length;
-  const selectedPeriodName = selectedPeriod?.name ?? "-";
+  const criticalCount = gapData.filter(
+    (d) => d.gap_flag === "critical"
+  ).length;
+  const moderateCount = gapData.filter(
+    (d) => d.gap_flag === "moderate"
+  ).length;
+  const consistentCount = gapData.filter(
+    (d) => d.gap_flag === "consistent"
+  ).length;
 
   // Top strengths & weaknesses
   const sortedByScore = [...gapData].sort(
@@ -250,7 +371,9 @@ export default function DetailPOPage() {
   // Biggest gaps
   const sortedByGap = [...gapData]
     .filter((d) => d.gap_self_vs_actual !== null)
-    .sort((a, b) => (b.gap_self_vs_actual ?? 0) - (a.gap_self_vs_actual ?? 0));
+    .sort(
+      (a, b) => (b.gap_self_vs_actual ?? 0) - (a.gap_self_vs_actual ?? 0)
+    );
   const biggestOverestimates = sortedByGap.slice(0, 3);
   const biggestUnderestimates = sortedByGap.slice(-3).reverse();
 
@@ -378,7 +501,10 @@ export default function DetailPOPage() {
           </div>
           <div className="flex gap-3">
             <div className="w-48">
-              <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId}>
+              <Select
+                value={selectedPeriodId}
+                onValueChange={setSelectedPeriodId}
+              >
                 <SelectTrigger className="bg-white" id="period-select-detail">
                   <SelectValue placeholder="Pilih periode..." />
                 </SelectTrigger>
@@ -423,8 +549,8 @@ export default function DetailPOPage() {
           <Card className="print:hidden">
             <CardContent className="py-16 text-center">
               <p className="text-slate-500 text-sm">
-                Pilih Product Owner dari dropdown di atas untuk menampilkan detail
-                evaluasi.
+                Pilih Product Owner dari dropdown di atas untuk menampilkan
+                detail evaluasi.
               </p>
             </CardContent>
           </Card>
@@ -463,61 +589,116 @@ export default function DetailPOPage() {
               {/* Bio */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 bg-slate-50 p-4 rounded-lg border">
                 <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wide">Nama PO</p>
-                  <p className="font-bold text-slate-800 mt-0.5">{selectedPO?.name ?? "-"}</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">
+                    Nama PO
+                  </p>
+                  <p className="font-bold text-slate-800 mt-0.5">
+                    {selectedPO?.name ?? "-"}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wide">Tribe</p>
-                  <p className="font-bold text-slate-800 mt-0.5">{selectedPO?.squad ?? "-"}</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">
+                    Tribe
+                  </p>
+                  <p className="font-bold text-slate-800 mt-0.5">
+                    {selectedPO?.squad ?? "-"}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wide">Periode Evaluasi</p>
-                  <p className="font-bold text-slate-800 mt-0.5">{selectedPeriodName}</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">
+                    Periode Evaluasi
+                  </p>
+                  <p className="font-bold text-slate-800 mt-0.5">
+                    {selectedPeriodName}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wide">Jumlah Evaluator</p>
-                  <p className="font-bold text-slate-800 mt-0.5">{totalRaters} orang</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">
+                    Jumlah Evaluator
+                  </p>
+                  <p className="font-bold text-slate-800 mt-0.5">
+                    {totalRaters} orang
+                  </p>
                 </div>
               </div>
 
               {/* Summary stats */}
               <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 mt-4">
                 <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-center">
-                  <p className="text-[10px] text-blue-600 uppercase tracking-wider font-medium">Skor Self</p>
-                  <p className={`text-2xl font-bold mt-1 ${getScoreColor(avgSelf)}`}>
+                  <p className="text-[10px] text-blue-600 uppercase tracking-wider font-medium">
+                    Skor Self
+                  </p>
+                  <p
+                    className={`text-2xl font-bold mt-1 ${getScoreColor(avgSelf)}`}
+                  >
                     {avgSelf.toFixed(2)}
                   </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">{getScoreLabel(avgSelf)}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {getScoreLabel(avgSelf)}
+                  </p>
                 </div>
                 <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-lg text-center">
-                  <p className="text-[10px] text-emerald-600 uppercase tracking-wider font-medium">Skor Tim</p>
-                  <p className={`text-2xl font-bold mt-1 ${getScoreColor(avgTim)}`}>
+                  <p className="text-[10px] text-emerald-600 uppercase tracking-wider font-medium">
+                    Skor Tim
+                  </p>
+                  <p
+                    className={`text-2xl font-bold mt-1 ${getScoreColor(avgTim)}`}
+                  >
                     {avgTim.toFixed(2)}
                   </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">{getScoreLabel(avgTim)}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {getScoreLabel(avgTim)}
+                  </p>
                 </div>
-                <div className={`border p-3 rounded-lg text-center ${avgGap > 0 ? "bg-red-50 border-red-200" : "bg-sky-50 border-sky-200"}`}>
-                  <p className="text-[10px] text-slate-600 uppercase tracking-wider font-medium">Gap Rata-rata</p>
-                  <p className={`text-2xl font-bold mt-1 ${avgGap > 0 ? "text-red-600" : "text-sky-600"}`}>
-                    {avgGap > 0 ? "+" : ""}{avgGap.toFixed(2)}
+                <div
+                  className={`border p-3 rounded-lg text-center ${avgGap > 0
+                      ? "bg-red-50 border-red-200"
+                      : "bg-sky-50 border-sky-200"
+                    }`}
+                >
+                  <p className="text-[10px] text-slate-600 uppercase tracking-wider font-medium">
+                    Gap Rata-rata
+                  </p>
+                  <p
+                    className={`text-2xl font-bold mt-1 ${avgGap > 0 ? "text-red-600" : "text-sky-600"
+                      }`}
+                  >
+                    {avgGap > 0 ? "+" : ""}
+                    {avgGap.toFixed(2)}
                   </p>
                   <p className="text-[10px] text-slate-500 mt-0.5">
-                    {avgGap > 0 ? "Over-estimate" : avgGap < 0 ? "Under-estimate" : "Selaras"}
+                    {avgGap > 0
+                      ? "Over-estimate"
+                      : avgGap < 0
+                        ? "Under-estimate"
+                        : "Selaras"}
                   </p>
                 </div>
                 <div className="bg-red-50 border border-red-200 p-3 rounded-lg text-center">
-                  <p className="text-[10px] text-red-600 uppercase tracking-wider font-medium">Critical</p>
-                  <p className="text-2xl font-bold text-red-600 mt-1">{criticalCount}</p>
+                  <p className="text-[10px] text-red-600 uppercase tracking-wider font-medium">
+                    Critical
+                  </p>
+                  <p className="text-2xl font-bold text-red-600 mt-1">
+                    {criticalCount}
+                  </p>
                   <p className="text-[10px] text-slate-500 mt-0.5">indikator</p>
                 </div>
                 <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg text-center">
-                  <p className="text-[10px] text-amber-600 uppercase tracking-wider font-medium">Moderate</p>
-                  <p className="text-2xl font-bold text-amber-600 mt-1">{moderateCount}</p>
+                  <p className="text-[10px] text-amber-600 uppercase tracking-wider font-medium">
+                    Moderate
+                  </p>
+                  <p className="text-2xl font-bold text-amber-600 mt-1">
+                    {moderateCount}
+                  </p>
                   <p className="text-[10px] text-slate-500 mt-0.5">indikator</p>
                 </div>
                 <div className="bg-green-50 border border-green-200 p-3 rounded-lg text-center">
-                  <p className="text-[10px] text-green-600 uppercase tracking-wider font-medium">Consistent</p>
-                  <p className="text-2xl font-bold text-green-600 mt-1">{consistentCount}</p>
+                  <p className="text-[10px] text-green-600 uppercase tracking-wider font-medium">
+                    Consistent
+                  </p>
+                  <p className="text-2xl font-bold text-green-600 mt-1">
+                    {consistentCount}
+                  </p>
                   <p className="text-[10px] text-slate-500 mt-0.5">indikator</p>
                 </div>
               </div>
@@ -537,13 +718,20 @@ export default function DetailPOPage() {
                 <CardContent>
                   <div className="space-y-2">
                     {topStrengths.map((item, idx) => (
-                      <div key={item.indicator_id} className="flex items-start gap-2">
+                      <div
+                        key={item.indicator_id}
+                        className="flex items-start gap-2"
+                      >
                         <span className="bg-green-100 text-green-800 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 mt-0.5">
                           {idx + 1}
                         </span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800">{item.indicator_name}</p>
-                          <p className="text-xs text-slate-500">{INDICATOR_DESC[item.indicator_id]}</p>
+                          <p className="text-sm font-medium text-slate-800">
+                            {item.indicator_name}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {INDICATOR_DESC[item.indicator_id]}
+                          </p>
                         </div>
                         <span className="text-sm font-bold text-green-700 shrink-0">
                           {item.actual_score?.toFixed(2)}
@@ -564,13 +752,20 @@ export default function DetailPOPage() {
                 <CardContent>
                   <div className="space-y-2">
                     {topWeaknesses.map((item, idx) => (
-                      <div key={item.indicator_id} className="flex items-start gap-2">
+                      <div
+                        key={item.indicator_id}
+                        className="flex items-start gap-2"
+                      >
                         <span className="bg-red-100 text-red-800 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 mt-0.5">
                           {idx + 1}
                         </span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800">{item.indicator_name}</p>
-                          <p className="text-xs text-slate-500">{INDICATOR_DESC[item.indicator_id]}</p>
+                          <p className="text-sm font-medium text-slate-800">
+                            {item.indicator_name}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {INDICATOR_DESC[item.indicator_id]}
+                          </p>
                         </div>
                         <span className="text-sm font-bold text-red-700 shrink-0">
                           {item.actual_score?.toFixed(2)}
@@ -596,12 +791,17 @@ export default function DetailPOPage() {
                 <CardContent>
                   <div className="space-y-2">
                     {biggestOverestimates.map((item, idx) => (
-                      <div key={item.indicator_id} className="flex items-start gap-2">
+                      <div
+                        key={item.indicator_id}
+                        className="flex items-start gap-2"
+                      >
                         <span className="bg-orange-100 text-orange-800 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 mt-0.5">
                           {idx + 1}
                         </span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800">{item.indicator_name}</p>
+                          <p className="text-sm font-medium text-slate-800">
+                            {item.indicator_name}
+                          </p>
                         </div>
                         <span className="text-sm font-bold text-orange-700 shrink-0">
                           +{item.gap_self_vs_actual?.toFixed(2)}
@@ -622,12 +822,17 @@ export default function DetailPOPage() {
                 <CardContent>
                   <div className="space-y-2">
                     {biggestUnderestimates.map((item, idx) => (
-                      <div key={item.indicator_id} className="flex items-start gap-2">
+                      <div
+                        key={item.indicator_id}
+                        className="flex items-start gap-2"
+                      >
                         <span className="bg-sky-100 text-sky-800 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shrink-0 mt-0.5">
                           {idx + 1}
                         </span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-800">{item.indicator_name}</p>
+                          <p className="text-sm font-medium text-slate-800">
+                            {item.indicator_name}
+                          </p>
                         </div>
                         <span className="text-sm font-bold text-sky-700 shrink-0">
                           {item.gap_self_vs_actual?.toFixed(2)}
@@ -654,7 +859,8 @@ export default function DetailPOPage() {
                   {categoryAverages.map((cat) => (
                     <div
                       key={cat.category}
-                      className={`p-4 rounded-lg border-l-4 ${CATEGORY_PRINT_COLORS[cat.category] ?? "border-slate-300 bg-slate-50"
+                      className={`p-4 rounded-lg border-l-4 ${CATEGORY_PRINT_COLORS[cat.category] ??
+                        "border-slate-300 bg-slate-50"
                         }`}
                     >
                       <p className="text-xs font-semibold text-slate-700 mb-2 leading-tight">
@@ -675,8 +881,12 @@ export default function DetailPOPage() {
                         </div>
                         <div>
                           <p className="text-[10px] text-slate-500">Gap</p>
-                          <p className={`text-lg font-bold ${cat.gap > 0 ? "text-red-600" : "text-sky-600"}`}>
-                            {cat.gap > 0 ? "+" : ""}{cat.gap.toFixed(1)}
+                          <p
+                            className={`text-lg font-bold ${cat.gap > 0 ? "text-red-600" : "text-sky-600"
+                              }`}
+                          >
+                            {cat.gap > 0 ? "+" : ""}
+                            {cat.gap.toFixed(1)}
                           </p>
                         </div>
                       </div>
@@ -695,8 +905,8 @@ export default function DetailPOPage() {
                   Profil Kompetensi - {selectedPO?.name}
                 </CardTitle>
                 <p className="text-xs text-slate-500">
-                  Perbandingan perspektif Self vs Tim (rata-rata evaluator) pada 15 indikator.
-                  Skala 1 (Sangat Kurang) s/d 7 (Sangat Baik).
+                  Perbandingan perspektif Self vs Tim (rata-rata evaluator) pada
+                  15 indikator. Skala 1 (Sangat Kurang) s/d 7 (Sangat Baik).
                 </p>
               </CardHeader>
               <CardContent>
@@ -739,7 +949,9 @@ export default function DetailPOPage() {
                           fillOpacity={0.1}
                           strokeWidth={2}
                         />
-                        <Legend wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
+                        <Legend
+                          wrapperStyle={{ fontSize: 12, paddingTop: 16 }}
+                        />
                         <Tooltip
                           contentStyle={{ borderRadius: 8, fontSize: 12 }}
                           formatter={(v: number) => v.toFixed(2)}
@@ -760,11 +972,35 @@ export default function DetailPOPage() {
                   Skor Detail per Indikator
                 </CardTitle>
                 <p className="text-xs text-slate-500">
-                  Rincian skor dari setiap perspektif evaluator. Gap = Self - Tim.
-                  Flag: <span className="text-red-600 font-medium">Critical</span> (gap ≥ 1.5),{" "}
-                  <span className="text-amber-600 font-medium">Moderate</span> (gap ≥ 0.75),{" "}
-                  <span className="text-green-600 font-medium">Consistent</span> (gap &lt; 0.75).
+                  Rincian skor dari setiap perspektif evaluator. Gap = Self -
+                  Tim. Flag:{" "}
+                  <span className="text-red-600 font-medium">Critical</span>{" "}
+                  (gap ≥ 1.5),{" "}
+                  <span className="text-amber-600 font-medium">Moderate</span>{" "}
+                  (gap ≥ 0.75),{" "}
+                  <span className="text-green-600 font-medium">Consistent</span>{" "}
+                  (gap &lt; 0.75).
                 </p>
+                {/* Legend penanda cell */}
+                <div className="flex flex-wrap items-center gap-4 mt-3 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-block w-7 text-center text-slate-300 italic text-[10px] border border-dashed border-slate-200 rounded px-1">
+                      N/A
+                    </span>
+                    <span className="text-slate-500">
+                      Role memang tidak menilai indikator ini (sesuai Role
+                      Matrix)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-block w-7 text-center text-amber-400 font-semibold border border-dashed border-amber-200 rounded px-1">
+                      -
+                    </span>
+                    <span className="text-slate-500">
+                      Role seharusnya menilai, tapi datanya belum masuk
+                    </span>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -799,7 +1035,9 @@ export default function DetailPOPage() {
                       </TableHeader>
                       <TableBody>
                         {categories.map((cat) => {
-                          const rows = gapData.filter((d) => d.category === cat);
+                          const rows = gapData.filter(
+                            (d) => d.category === cat
+                          );
                           return (
                             <Fragment key={`cat-${cat}`}>
                               <TableRow className="bg-slate-100 hover:bg-slate-100">
@@ -827,34 +1065,82 @@ export default function DetailPOPage() {
                                   </TableCell>
                                   <TableCell
                                     className="text-slate-600 text-xs pr-4"
-                                    title={INDICATOR_DESC[row.indicator_id] ?? ""}
+                                    title={
+                                      INDICATOR_DESC[row.indicator_id] ?? ""
+                                    }
                                   >
                                     {INDICATOR_DESC[row.indicator_id] ?? "-"}
                                   </TableCell>
+
+                                  {/* Self */}
                                   <TableCell className="text-right tabular-nums text-sm">
-                                    {row.avg_self?.toFixed(1) ?? "-"}
+                                    {renderRoleCell(
+                                      row.avg_self,
+                                      "avg_self",
+                                      row.indicator_id
+                                    )}
                                   </TableCell>
+
+                                  {/* Lead PO */}
                                   <TableCell className="text-right tabular-nums text-sm">
-                                    {row.avg_lead_po?.toFixed(1) ?? "-"}
+                                    {renderRoleCell(
+                                      row.avg_lead_po,
+                                      "avg_lead_po",
+                                      row.indicator_id
+                                    )}
                                   </TableCell>
+
+                                  {/* SA */}
                                   <TableCell className="text-right tabular-nums text-sm">
-                                    {row.avg_sa?.toFixed(1) ?? "-"}
+                                    {renderRoleCell(
+                                      row.avg_sa,
+                                      "avg_sa",
+                                      row.indicator_id
+                                    )}
                                   </TableCell>
+
+                                  {/* UI/UX */}
                                   <TableCell className="text-right tabular-nums text-sm">
-                                    {row.avg_ui_ux?.toFixed(1) ?? "-"}
+                                    {renderRoleCell(
+                                      row.avg_ui_ux,
+                                      "avg_ui_ux",
+                                      row.indicator_id
+                                    )}
                                   </TableCell>
+
+                                  {/* Dev */}
                                   <TableCell className="text-right tabular-nums text-sm">
-                                    {row.avg_dev?.toFixed(1) ?? "-"}
+                                    {renderRoleCell(
+                                      row.avg_dev,
+                                      "avg_dev",
+                                      row.indicator_id
+                                    )}
                                   </TableCell>
+
+                                  {/* QA */}
                                   <TableCell className="text-right tabular-nums text-sm">
-                                    {row.avg_qa?.toFixed(1) ?? "-"}
+                                    {renderRoleCell(
+                                      row.avg_qa,
+                                      "avg_qa",
+                                      row.indicator_id
+                                    )}
                                   </TableCell>
+
+                                  {/* PM */}
                                   <TableCell className="text-right tabular-nums text-sm">
-                                    {row.avg_pm?.toFixed(1) ?? "-"}
+                                    {renderRoleCell(
+                                      row.avg_pm,
+                                      "avg_pm",
+                                      row.indicator_id
+                                    )}
                                   </TableCell>
+
+                                  {/* Skor Tim */}
                                   <TableCell className="text-right tabular-nums text-sm font-bold text-slate-800">
                                     {row.actual_score?.toFixed(2) ?? "-"}
                                   </TableCell>
+
+                                  {/* Gap */}
                                   <TableCell className="text-right tabular-nums text-sm">
                                     <span
                                       className={
@@ -865,17 +1151,26 @@ export default function DetailPOPage() {
                                             : "text-slate-500"
                                       }
                                     >
-                                      {(row.gap_self_vs_actual ?? 0) > 0 ? "+" : ""}
-                                      {row.gap_self_vs_actual?.toFixed(2) ?? "-"}
+                                      {(row.gap_self_vs_actual ?? 0) > 0
+                                        ? "+"
+                                        : ""}
+                                      {row.gap_self_vs_actual?.toFixed(2) ??
+                                        "-"}
                                     </span>
                                   </TableCell>
+
+                                  {/* Flag */}
                                   <TableCell>
                                     {row.gap_flag === "critical" ? (
-                                      <Badge variant="destructive">Critical</Badge>
+                                      <Badge variant="destructive">
+                                        Critical
+                                      </Badge>
                                     ) : row.gap_flag === "moderate" ? (
                                       <Badge variant="warning">Moderate</Badge>
                                     ) : row.gap_flag === "consistent" ? (
-                                      <Badge variant="success">Consistent</Badge>
+                                      <Badge variant="success">
+                                        Consistent
+                                      </Badge>
                                     ) : (
                                       <Badge variant="secondary">N/A</Badge>
                                     )}
@@ -909,9 +1204,15 @@ export default function DetailPOPage() {
                 <CardContent>
                   <div className="space-y-3">
                     {qualitativeNotes.map((note, idx) => (
-                      <div key={idx} className="border rounded-lg p-4 bg-slate-50">
+                      <div
+                        key={idx}
+                        className="border rounded-lg p-4 bg-slate-50"
+                      >
                         <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="outline" className="capitalize text-xs">
+                          <Badge
+                            variant="outline"
+                            className="capitalize text-xs"
+                          >
                             {note.rater_role.replace("_", " ")}
                           </Badge>
                         </div>
@@ -939,19 +1240,25 @@ export default function DetailPOPage() {
                 <div>
                   <p className="text-slate-500 mb-12">Mengetahui:</p>
                   <div className="border-t border-slate-400 pt-2 mx-8">
-                    <p className="font-medium text-slate-700">HR / People Ops</p>
+                    <p className="font-medium text-slate-700">
+                      HR / People Ops
+                    </p>
                   </div>
                 </div>
                 <div>
                   <p className="text-slate-500 mb-12">Product Owner:</p>
                   <div className="border-t border-slate-400 pt-2 mx-8">
-                    <p className="font-medium text-slate-700">{selectedPO?.name ?? "-"}</p>
+                    <p className="font-medium text-slate-700">
+                      {selectedPO?.name ?? "-"}
+                    </p>
                   </div>
                 </div>
               </div>
               <p className="text-[10px] text-slate-400 text-center mt-6">
-                Dokumen ini digenerate secara otomatis oleh Sistem Performance Review Product |{" "}
-                {new Date().toLocaleDateString("id-ID")} | Halaman ini bersifat rahasia.
+                Dokumen ini digenerate secara otomatis oleh Sistem Performance
+                Review Product |{" "}
+                {new Date().toLocaleDateString("id-ID")} | Halaman ini bersifat
+                rahasia.
               </p>
             </div>
 

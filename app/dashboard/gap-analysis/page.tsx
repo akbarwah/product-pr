@@ -39,6 +39,71 @@ import { toast } from "sonner";
 import { createBrowserClient } from "@/lib/supabase";
 import type { EvaluationPeriod, GapAnalysis, ProductOwner } from "@/lib/types";
 
+/* ============================================================
+   ROLE INDICATOR MATRIX
+   (sama persis dengan detail page)
+   ============================================================ */
+
+const ROLE_INDICATOR_MATRIX: Record<string, Set<number>> = {
+  avg_self: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+  avg_lead_po: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+  avg_sa: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+  avg_ui_ux: new Set([2, 4, 6, 7, 12, 15]),
+  avg_dev: new Set([5, 6, 7, 8, 10, 12, 13]),
+  avg_qa: new Set([3, 5, 6, 7, 10, 12, 13]),
+  avg_pm: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+};
+
+/* ============================================================
+   PEMBOBOTAN (WEIGHTING)
+   (sama persis dengan detail page)
+   ============================================================ */
+
+const CATEGORY_WEIGHTS: Record<string, { lead: number; team: number }> = {
+  "I. Strategic & Analytical Rigor": { lead: 0.5, team: 0.5 },
+  "II. Product Rigor & Specification": { lead: 0.3, team: 0.7 },
+  "III. Operational Execution": { lead: 0.3, team: 0.7 },
+  "IV. Stakeholder & Market Advocacy": { lead: 0.6, team: 0.4 },
+};
+
+function calculateWeightedScore(row: GapAnalysis): number | null {
+  const weights = CATEGORY_WEIGHTS[row.category];
+  if (!weights) return row.actual_score;
+
+  const leadScore = row.avg_lead_po ?? null;
+
+  const teamRoles: { key: string; value: number | null }[] = [
+    { key: "avg_sa", value: row.avg_sa ?? null },
+    { key: "avg_ui_ux", value: row.avg_ui_ux ?? null },
+    { key: "avg_dev", value: row.avg_dev ?? null },
+    { key: "avg_qa", value: row.avg_qa ?? null },
+    { key: "avg_pm", value: row.avg_pm ?? null },
+  ];
+
+  const validTeamScores = teamRoles
+    .filter((r) => {
+      const allowed = ROLE_INDICATOR_MATRIX[r.key];
+      return allowed?.has(row.indicator_id) && r.value !== null;
+    })
+    .map((r) => r.value as number);
+
+  const teamAvg =
+    validTeamScores.length > 0
+      ? validTeamScores.reduce((a, b) => a + b, 0) / validTeamScores.length
+      : null;
+
+  if (leadScore !== null && teamAvg !== null) {
+    return leadScore * weights.lead + teamAvg * weights.team;
+  }
+  if (leadScore !== null) return leadScore;
+  if (teamAvg !== null) return teamAvg;
+  return null;
+}
+
+/* ============================================================
+   HEATMAP STYLE
+   ============================================================ */
+
 function getHeatmapStyle(gap: number | null): React.CSSProperties {
   if (gap === null) return { backgroundColor: "#f8fafc", color: "#94a3b8" };
   if (gap >= 2.0) return { backgroundColor: "#b91c1c", color: "white" };
@@ -47,6 +112,10 @@ function getHeatmapStyle(gap: number | null): React.CSSProperties {
   if (gap <= -1.0) return { backgroundColor: "#bfdbfe", color: "#1e3a8a" };
   return { backgroundColor: "white", color: "#475569" };
 }
+
+/* ============================================================
+   MAIN COMPONENT
+   ============================================================ */
 
 export default function GapAnalysisPage() {
   const supabase = createBrowserClient();
@@ -85,6 +154,7 @@ export default function GapAnalysisPage() {
     fetchMeta();
   }, []);
 
+  /* ─── Fetch data WITH WEIGHTING ───────────────────────── */
   const fetchData = useCallback(async () => {
     if (!selectedPeriodId) return;
     setLoading(true);
@@ -97,7 +167,32 @@ export default function GapAnalysisPage() {
         .order("po_name")
         .order("indicator_id");
       if (error) throw error;
-      setAllData((data as GapAnalysis[]) ?? []);
+
+      // Terapkan pembobotan (sinkron dengan detail page)
+      const rawData = (data as GapAnalysis[]) ?? [];
+      const weightedData = rawData.map((row) => {
+        const weightedScore = calculateWeightedScore(row);
+        const gap =
+          row.avg_self !== null && weightedScore !== null
+            ? row.avg_self - weightedScore
+            : null;
+
+        return {
+          ...row,
+          actual_score: weightedScore,
+          gap_self_vs_actual: gap,
+          gap_flag:
+            gap !== null
+              ? Math.abs(gap) >= 1.5
+                ? ("critical" as const)
+                : Math.abs(gap) >= 0.75
+                  ? ("moderate" as const)
+                  : ("consistent" as const)
+              : null,
+        };
+      });
+
+      setAllData(weightedData);
     } catch (err: any) {
       console.error("GapAnalysis fetchData:", err);
       toast.error(err.message || "Gagal memuat data gap analysis.");
@@ -114,7 +209,8 @@ export default function GapAnalysisPage() {
   // Apply filters
   const filtered = allData.filter((d) => {
     if (selectedPoId !== "all" && d.po_id !== selectedPoId) return false;
-    if (selectedCategory !== "all" && d.category !== selectedCategory) return false;
+    if (selectedCategory !== "all" && d.category !== selectedCategory)
+      return false;
     if (selectedFlag !== "all" && d.gap_flag !== selectedFlag) return false;
     return true;
   });
@@ -124,7 +220,9 @@ export default function GapAnalysisPage() {
 
   // Diverging chart data (single PO)
   const divergingData = filtered
-    .sort((a, b) => (b.gap_self_vs_actual ?? 0) - (a.gap_self_vs_actual ?? 0))
+    .sort(
+      (a, b) => (b.gap_self_vs_actual ?? 0) - (a.gap_self_vs_actual ?? 0)
+    )
     .map((d) => ({
       indicator_name:
         d.indicator_name.length > 25
@@ -153,13 +251,13 @@ export default function GapAnalysisPage() {
     filtered.map((d) => [`${d.po_id}-${d.indicator_id}`, d])
   );
 
+  // CSV export (sekarang pakai data yang sudah weighted)
   const handleDownloadCSV = () => {
     if (allData.length === 0) {
       toast.error("Tidak ada data untuk diunduh.");
       return;
     }
-    
-    // CSV Header
+
     const headers = [
       "Periode",
       "PO",
@@ -167,12 +265,11 @@ export default function GapAnalysisPage() {
       "Indikator Name",
       "Kategori",
       "Self Score",
-      "Actual Score",
-      "Gap",
-      "Flag"
+      "Weighted Actual Score",
+      "Gap (Weighted)",
+      "Flag",
     ];
-    
-    // CSV Rows
+
     const rows = allData.map((d) => [
       d.period_name || "",
       d.po_name || "",
@@ -182,16 +279,20 @@ export default function GapAnalysisPage() {
       d.avg_self?.toFixed(2) || "N/A",
       d.actual_score?.toFixed(2) || "N/A",
       d.gap_self_vs_actual?.toFixed(2) || "N/A",
-      d.gap_flag || "N/A"
+      d.gap_flag || "N/A",
     ]);
-    
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-      
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `gap_analysis_export_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute(
+      "download",
+      `gap_analysis_weighted_${new Date().toISOString().slice(0, 10)}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -207,7 +308,10 @@ export default function GapAnalysisPage() {
           <CardContent className="p-6 text-center">
             <RefreshCw className="h-8 w-8 text-red-400 mx-auto mb-3 opacity-50" />
             <p className="text-slate-600 font-medium">{error}</p>
-            <button onClick={fetchData} className="mt-4 text-sm text-blue-600 font-medium hover:underline">
+            <button
+              onClick={fetchData}
+              className="mt-4 text-sm text-blue-600 font-medium hover:underline"
+            >
               Coba lagi
             </button>
           </CardContent>
@@ -224,11 +328,15 @@ export default function GapAnalysisPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-800">Gap Analysis</h1>
             <p className="text-slate-500 text-sm mt-0.5">
-              Analisis kesenjangan persepsi Self vs Actual (Rata-rata Peer)
+              Analisis kesenjangan persepsi Self vs Tim (Weighted Score)
             </p>
           </div>
           <div>
-            <Button onClick={handleDownloadCSV} variant="outline" className="flex items-center gap-2 bg-white">
+            <Button
+              onClick={handleDownloadCSV}
+              variant="outline"
+              className="flex items-center gap-2 bg-white"
+            >
               <Download className="h-4 w-4" />
               Unduh CSV
             </Button>
@@ -238,7 +346,10 @@ export default function GapAnalysisPage() {
         {/* Filter Bar */}
         <div className="flex flex-wrap gap-3">
           <div className="w-48">
-            <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId}>
+            <Select
+              value={selectedPeriodId}
+              onValueChange={setSelectedPeriodId}
+            >
               <SelectTrigger className="bg-white" id="gap-period">
                 <SelectValue placeholder="Periode..." />
               </SelectTrigger>
@@ -269,7 +380,10 @@ export default function GapAnalysisPage() {
           </div>
 
           <div className="w-48">
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Select
+              value={selectedCategory}
+              onValueChange={setSelectedCategory}
+            >
               <SelectTrigger className="bg-white" id="gap-cat">
                 <SelectValue placeholder="Kategori..." />
               </SelectTrigger>
@@ -304,10 +418,11 @@ export default function GapAnalysisPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold text-slate-800">
-                Self vs Actual - {selectedPO?.name}
+                Self vs Tim (Weighted) - {selectedPO?.name}
               </CardTitle>
               <p className="text-xs text-slate-500">
-                Gap positif = PO menilai dirinya lebih tinggi (blind spot); negatif = low confidence
+                Gap positif = PO menilai dirinya lebih tinggi (blind spot);
+                negatif = low confidence. Skor Tim sudah terbobot per kategori.
               </p>
             </CardHeader>
             <CardContent>
@@ -327,8 +442,15 @@ export default function GapAnalysisPage() {
                     layout="vertical"
                     margin={{ top: 4, right: 70, left: 12, bottom: 4 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" domain={["auto", "auto"]} tick={{ fontSize: 11 }} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      horizontal={false}
+                    />
+                    <XAxis
+                      type="number"
+                      domain={["auto", "auto"]}
+                      tick={{ fontSize: 11 }}
+                    />
                     <YAxis
                       type="category"
                       dataKey="indicator_name"
@@ -336,7 +458,10 @@ export default function GapAnalysisPage() {
                       tick={{ fontSize: 11 }}
                     />
                     <Tooltip
-                      formatter={(v: number) => [v.toFixed(2), "Gap (Self - Actual)"]}
+                      formatter={(v: number) => [
+                        v.toFixed(2),
+                        "Gap (Self - Tim Weighted)",
+                      ]}
                       contentStyle={{ borderRadius: 8, fontSize: 12 }}
                     />
                     <ReferenceLine x={0} stroke="#1e293b" strokeWidth={2} />
@@ -368,10 +493,11 @@ export default function GapAnalysisPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold text-slate-800">
-                Heatmap Gap - Semua PO
+                Heatmap Gap (Weighted) - Semua PO
               </CardTitle>
               <p className="text-xs text-slate-500">
-                Nilai: gap_self_vs_actual. Merah = blind spot, Biru = low confidence
+                Nilai: Gap Self vs Tim (Weighted). Merah = blind spot, Biru =
+                low confidence
               </p>
             </CardHeader>
             <CardContent>
@@ -390,7 +516,10 @@ export default function GapAnalysisPage() {
                             key={po.id}
                             className="border border-slate-200 px-2 py-2 text-center text-slate-600 font-semibold min-w-[80px] max-w-[100px]"
                           >
-                            <div className="truncate max-w-[80px]" title={po.name}>
+                            <div
+                              className="truncate max-w-[80px]"
+                              title={po.name}
+                            >
                               {po.name.split(" ")[0]}
                             </div>
                           </th>
@@ -404,11 +533,13 @@ export default function GapAnalysisPage() {
                             {indName}
                           </td>
                           {heatmapPOs.map((po) => {
-                            const cell = heatmapMap.get(`${po.id}-${indId}`);
+                            const cell = heatmapMap.get(
+                              `${po.id}-${indId}`
+                            );
                             const gap = cell?.gap_self_vs_actual ?? null;
                             const style = getHeatmapStyle(gap);
                             const tooltipText = cell
-                              ? `Self: ${cell.avg_self?.toFixed(2) ?? "N/A"} | Actual: ${cell.actual_score?.toFixed(2) ?? "N/A"} | Gap: ${gap !== null ? (gap > 0 ? "+" : "") + gap.toFixed(2) : "N/A"}`
+                              ? `Self: ${cell.avg_self?.toFixed(2) ?? "N/A"} | Tim (Weighted): ${cell.actual_score?.toFixed(2) ?? "N/A"} | Gap: ${gap !== null ? (gap > 0 ? "+" : "") + gap.toFixed(2) : "N/A"}`
                               : "Data tidak tersedia";
                             return (
                               <td
@@ -420,7 +551,8 @@ export default function GapAnalysisPage() {
                                   <TooltipTrigger asChild>
                                     <div className="px-2 py-2 cursor-default w-full h-full">
                                       {gap !== null
-                                        ? (gap > 0 ? "+" : "") + gap.toFixed(1)
+                                        ? (gap > 0 ? "+" : "") +
+                                        gap.toFixed(1)
                                         : "-"}
                                     </div>
                                   </TooltipTrigger>
@@ -447,14 +579,14 @@ export default function GapAnalysisPage() {
             {
               emoji: "🔴",
               title: "Blind Spot",
-              subtitle: "Self >> Actual (gap ≥ +1.5)",
+              subtitle: "Self >> Tim (gap ≥ +1.5)",
               desc: "PO menilai dirinya lebih tinggi dari yang tim rasakan",
               bg: "bg-red-50 border-red-200",
             },
             {
               emoji: "🔵",
               title: "Low Confidence",
-              subtitle: "Self << Actual (gap ≤ -1.5)",
+              subtitle: "Self << Tim (gap ≤ -1.5)",
               desc: "PO merendahkan dirinya, tim menilai lebih positif",
               bg: "bg-blue-50 border-blue-200",
             },

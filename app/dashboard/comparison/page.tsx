@@ -48,9 +48,106 @@ import { toast } from "sonner";
 import { createBrowserClient } from "@/lib/supabase";
 import type { EvaluationPeriod, GapAnalysis, ProductOwner } from "@/lib/types";
 
+/* ============================================================
+   ROLE INDICATOR MATRIX
+   (sinkron dengan detail page & gap analysis page)
+   ============================================================ */
+
+const ROLE_INDICATOR_MATRIX: Record<string, Set<number>> = {
+  avg_self: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+  avg_lead_po: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+  avg_sa: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+  avg_ui_ux: new Set([2, 4, 6, 7, 12, 15]),
+  avg_dev: new Set([5, 6, 7, 8, 10, 12, 13]),
+  avg_qa: new Set([3, 5, 6, 7, 10, 12, 13]),
+  avg_pm: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+};
+
+/* ============================================================
+   PEMBOBOTAN (WEIGHTING)
+   (sinkron dengan detail page & gap analysis page)
+   ============================================================ */
+
+const CATEGORY_WEIGHTS: Record<string, { lead: number; team: number }> = {
+  "I. Strategic & Analytical Rigor": { lead: 0.5, team: 0.5 },
+  "II. Product Rigor & Specification": { lead: 0.3, team: 0.7 },
+  "III. Operational Execution": { lead: 0.3, team: 0.7 },
+  "IV. Stakeholder & Market Advocacy": { lead: 0.6, team: 0.4 },
+};
+
+function calculateWeightedScore(row: GapAnalysis): number | null {
+  const weights = CATEGORY_WEIGHTS[row.category];
+  if (!weights) return row.actual_score;
+
+  const leadScore = row.avg_lead_po ?? null;
+
+  const teamRoles: { key: string; value: number | null }[] = [
+    { key: "avg_sa", value: row.avg_sa ?? null },
+    { key: "avg_ui_ux", value: row.avg_ui_ux ?? null },
+    { key: "avg_dev", value: row.avg_dev ?? null },
+    { key: "avg_qa", value: row.avg_qa ?? null },
+    { key: "avg_pm", value: row.avg_pm ?? null },
+  ];
+
+  const validTeamScores = teamRoles
+    .filter((r) => {
+      const allowed = ROLE_INDICATOR_MATRIX[r.key];
+      return allowed?.has(row.indicator_id) && r.value !== null;
+    })
+    .map((r) => r.value as number);
+
+  const teamAvg =
+    validTeamScores.length > 0
+      ? validTeamScores.reduce((a, b) => a + b, 0) / validTeamScores.length
+      : null;
+
+  if (leadScore !== null && teamAvg !== null) {
+    return leadScore * weights.lead + teamAvg * weights.team;
+  }
+  if (leadScore !== null) return leadScore;
+  if (teamAvg !== null) return teamAvg;
+  return null;
+}
+
+/**
+ * Terapkan pembobotan ke array GapAnalysis.
+ * Dipakai untuk pre-test dan post-test.
+ */
+function applyWeighting(rawData: GapAnalysis[]): GapAnalysis[] {
+  return rawData.map((row) => {
+    const weightedScore = calculateWeightedScore(row);
+    const gap =
+      row.avg_self !== null && weightedScore !== null
+        ? row.avg_self - weightedScore
+        : null;
+
+    return {
+      ...row,
+      actual_score: weightedScore,
+      gap_self_vs_actual: gap,
+      gap_flag:
+        gap !== null
+          ? Math.abs(gap) >= 1.5
+            ? ("critical" as const)
+            : Math.abs(gap) >= 0.75
+              ? ("moderate" as const)
+              : ("consistent" as const)
+          : null,
+    };
+  });
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+
 function truncateLabel(name: string, max = 20): string {
   return name.length > max ? name.slice(0, max) + "..." : name;
 }
+
+/* ============================================================
+   MAIN COMPONENT
+   ============================================================ */
 
 export default function ComparisonPage() {
   const supabase = createBrowserClient();
@@ -70,7 +167,11 @@ export default function ComparisonPage() {
     const fetchMeta = async () => {
       setLoading(true);
       const [posRes, periodRes] = await Promise.all([
-        supabase.from("product_owners").select("*").eq("is_active", true).order("name"),
+        supabase
+          .from("product_owners")
+          .select("*")
+          .eq("is_active", true)
+          .order("name"),
         supabase
           .from("evaluation_periods")
           .select("*")
@@ -97,6 +198,7 @@ export default function ComparisonPage() {
     fetchMeta();
   }, []);
 
+  /* ─── Fetch data WITH WEIGHTING ───────────────────────── */
   const fetchData = useCallback(async () => {
     if (!selectedPoId || !prePeriod) return;
     setLoading(true);
@@ -111,7 +213,10 @@ export default function ComparisonPage() {
         .order("indicator_id");
 
       if (preRes.error) throw preRes.error;
-      setPreData((preRes.data as GapAnalysis[]) ?? []);
+
+      // Terapkan pembobotan ke pre-test
+      const rawPre = (preRes.data as GapAnalysis[]) ?? [];
+      setPreData(applyWeighting(rawPre));
 
       if (postPeriod) {
         const postRes = await supabase
@@ -122,7 +227,10 @@ export default function ComparisonPage() {
           .order("indicator_id");
 
         if (postRes.error) throw postRes.error;
-        setPostData((postRes.data as GapAnalysis[]) ?? []);
+
+        // Terapkan pembobotan ke post-test
+        const rawPost = (postRes.data as GapAnalysis[]) ?? [];
+        setPostData(applyWeighting(rawPost));
       }
     } catch (err: any) {
       console.error("Comparison fetchData:", err);
@@ -136,6 +244,8 @@ export default function ComparisonPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  /* ─── Derived data ────────────────────────────────────── */
 
   // Build joined table data
   const comparisonRows = preData.map((pre) => {
@@ -179,6 +289,7 @@ export default function ComparisonPage() {
 
   const selectedPO = pos.find((p) => p.id === selectedPoId);
 
+  /* ─── Error state ─────────────────────────────────────── */
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -186,7 +297,10 @@ export default function ComparisonPage() {
           <CardContent className="p-6 text-center">
             <RefreshCw className="h-8 w-8 text-red-400 mx-auto mb-3 opacity-50" />
             <p className="text-slate-600 font-medium">{error}</p>
-            <button onClick={fetchData} className="mt-4 text-sm text-blue-600 font-medium hover:underline">
+            <button
+              onClick={fetchData}
+              className="mt-4 text-sm text-blue-600 font-medium hover:underline"
+            >
               Coba lagi
             </button>
           </CardContent>
@@ -195,6 +309,7 @@ export default function ComparisonPage() {
     );
   }
 
+  /* ─── Render ──────────────────────────────────────────── */
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -204,7 +319,7 @@ export default function ComparisonPage() {
             Pre-test vs Post-test Comparison
           </h1>
           <p className="text-slate-500 text-sm mt-0.5">
-            Perbandingan skor sebelum dan sesudah program pengembangan
+            Perbandingan skor terbobot sebelum dan sesudah program pengembangan
           </p>
         </div>
         <div className="w-56">
@@ -235,7 +350,8 @@ export default function ComparisonPage() {
                 Data Post-test Belum Tersedia
               </h2>
               <p className="text-slate-500 text-sm">
-                Post-test akan dilakukan setelah program intervensi pasca pre test selesai dilaksanakan.
+                Post-test akan dilakukan setelah program intervensi pasca pre
+                test selesai dilaksanakan.
               </p>
             </CardContent>
           </Card>
@@ -250,23 +366,33 @@ export default function ComparisonPage() {
             {prePeriod && (
               <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-600">
                 <span className="h-2 w-2 rounded-full bg-slate-400 inline-block" />
-                Pre-test: <span className="font-medium">{prePeriod.name}</span>
+                Pre-test:{" "}
+                <span className="font-medium">{prePeriod.name}</span>
               </div>
             )}
             {postPeriod && (
               <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-1.5 text-xs text-green-700">
                 <span className="h-2 w-2 rounded-full bg-green-500 inline-block" />
-                Post-test: <span className="font-medium">{postPeriod.name}</span>
+                Post-test:{" "}
+                <span className="font-medium">{postPeriod.name}</span>
               </div>
             )}
+            <div className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-1.5 text-xs text-blue-700">
+              <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" />
+              Skor menggunakan pembobotan per kategori
+            </div>
           </div>
 
           {/* Comparison Table */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold text-slate-800">
-                Perbandingan Skor - {selectedPO?.name}
+                Perbandingan Skor Terbobot - {selectedPO?.name}
               </CardTitle>
+              <p className="text-xs text-slate-500">
+                Skor Tim sudah dihitung dengan pembobotan Lead PO vs Tim
+                Operasional per kategori.
+              </p>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -330,12 +456,19 @@ export default function ComparisonPage() {
                   </TableBody>
                   <TableFooter>
                     <TableRow>
-                      <TableCell colSpan={4} className="font-semibold text-slate-700">
+                      <TableCell
+                        colSpan={4}
+                        className="font-semibold text-slate-700"
+                      >
                         Overall Average
                       </TableCell>
                       <TableCell className="text-right tabular-nums font-bold">
                         {avgDelta !== null ? (
-                          <span className={avgDelta >= 0 ? "text-green-600" : "text-red-600"}>
+                          <span
+                            className={
+                              avgDelta >= 0 ? "text-green-600" : "text-red-600"
+                            }
+                          >
                             {avgDelta > 0 ? "+" : ""}
                             {avgDelta.toFixed(2)}
                           </span>
@@ -355,8 +488,11 @@ export default function ComparisonPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold text-slate-800">
-                Overlay Radar - Pre vs Post
+                Overlay Radar - Pre vs Post (Weighted)
               </CardTitle>
+              <p className="text-xs text-slate-500">
+                Kedua radar menggunakan skor terbobot yang sama.
+              </p>
             </CardHeader>
             <CardContent>
               {radarData.length === 0 ? (
@@ -365,7 +501,10 @@ export default function ComparisonPage() {
                 </p>
               ) : (
                 <ResponsiveContainer width="100%" height={480}>
-                  <RadarChart data={radarData} margin={{ top: 20, right: 40, bottom: 20, left: 40 }}>
+                  <RadarChart
+                    data={radarData}
+                    margin={{ top: 20, right: 40, bottom: 20, left: 40 }}
+                  >
                     <PolarGrid stroke="#e2e8f0" />
                     <PolarAngleAxis
                       dataKey="indicator_name"
@@ -377,7 +516,7 @@ export default function ComparisonPage() {
                       tick={{ fontSize: 9, fill: "#94a3b8" }}
                     />
                     <Radar
-                      name="Pre-test"
+                      name="Pre-test (Weighted)"
                       dataKey="pre"
                       stroke="#94a3b8"
                       strokeDasharray="5 5"
@@ -386,14 +525,16 @@ export default function ComparisonPage() {
                       strokeWidth={2}
                     />
                     <Radar
-                      name="Post-test"
+                      name="Post-test (Weighted)"
                       dataKey="post"
                       stroke="#10b981"
                       fill="#10b981"
                       fillOpacity={0.15}
                       strokeWidth={2}
                     />
-                    <Legend wrapperStyle={{ fontSize: 12, paddingTop: 16 }} />
+                    <Legend
+                      wrapperStyle={{ fontSize: 12, paddingTop: 16 }}
+                    />
                     <Tooltip
                       contentStyle={{ borderRadius: 8, fontSize: 12 }}
                       formatter={(v: number) => v.toFixed(2)}
@@ -408,10 +549,11 @@ export default function ComparisonPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold text-slate-800">
-                Delta Score per Indikator
+                Delta Score per Indikator (Weighted)
               </CardTitle>
               <p className="text-xs text-slate-500">
-                Hijau = peningkatan, Merah = penurunan dibanding pre-test
+                Hijau = peningkatan, Merah = penurunan dibanding pre-test.
+                Dihitung dari skor terbobot.
               </p>
             </CardHeader>
             <CardContent>
@@ -429,8 +571,15 @@ export default function ComparisonPage() {
                     layout="vertical"
                     margin={{ top: 4, right: 70, left: 12, bottom: 4 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" domain={["auto", "auto"]} tick={{ fontSize: 11 }} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      horizontal={false}
+                    />
+                    <XAxis
+                      type="number"
+                      domain={["auto", "auto"]}
+                      tick={{ fontSize: 11 }}
+                    />
                     <YAxis
                       type="category"
                       dataKey="indicator_name"
@@ -440,7 +589,7 @@ export default function ComparisonPage() {
                     <Tooltip
                       formatter={(v: number) => [
                         (v > 0 ? "+" : "") + v.toFixed(2),
-                        "Delta",
+                        "Delta (Weighted)",
                       ]}
                       contentStyle={{ borderRadius: 8, fontSize: 12 }}
                     />
