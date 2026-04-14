@@ -65,9 +65,10 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  
+
   // Form States
   const [raterRole, setRaterRole] = useState<string>("");
+  const [raterName, setRaterName] = useState<string>("");
   const [note, setNote] = useState<string>("");
   const [scores, setScores] = useState<Record<number, number>>({});
   const [saving, setSaving] = useState(false);
@@ -89,15 +90,15 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
       const { data, error } = await supabase
         .from("responses")
         .select(`
-          id, period_id, po_id, rater_role, submitted_at, qualitative_note,
-          scores (id, indicator_id, score, is_na)
+          id, period_id, po_id, rater_role, rater_name, submitted_at, qualitative_note,
+          scores (id, response_id, indicator_id, score, is_na)
         `)
         .eq("period_id", periodId)
         .eq("po_id", poId)
         .order("submitted_at", { ascending: false });
 
       if (error) throw error;
-      setResponses(data as Response[] ?? []);
+      setResponses((data as Response[]) ?? []);
     } catch (err: any) {
       toast.error(err.message || "Gagal mengambil data raw responses.");
     } finally {
@@ -109,11 +110,13 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
     if (periodId && poId) {
       fetchResponses();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodId, poId]);
 
   const openNewForm = () => {
     setEditingId(null);
     setRaterRole("");
+    setRaterName("");
     setNote("");
     setScores({});
     setIsModalOpen(true);
@@ -122,10 +125,11 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
   const openEditForm = (response: Response) => {
     setEditingId(response.id);
     setRaterRole(response.rater_role);
+    setRaterName(response.rater_name || "");
     setNote(response.qualitative_note || "");
     const scoreMap: Record<number, number> = {};
     if (response.scores) {
-      response.scores.forEach(s => {
+      response.scores.forEach((s) => {
         if (!s.is_na) scoreMap[s.indicator_id] = s.score;
       });
     }
@@ -134,7 +138,12 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Apakah Anda yakin ingin menghapus evaluasi ini? (Tindakan ini tidak dapat dibatalkan)")) return;
+    if (
+      !window.confirm(
+        "Apakah Anda yakin ingin menghapus evaluasi ini? (Tindakan ini tidak dapat dibatalkan)"
+      )
+    )
+      return;
     try {
       // First delete scores (if ON DELETE CASCADE is missing)
       await supabase.from("scores").delete().eq("response_id", id);
@@ -167,16 +176,21 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
           period_id: periodId,
           po_id: poId,
           rater_role: raterRole,
+          rater_name: raterName || null,
           qualitative_note: note,
         });
         if (insErr) throw insErr;
         currentResponseId = newId;
       } else {
         // Update
-        const { error: updErr } = await supabase.from("responses").update({
-          rater_role: raterRole,
-          qualitative_note: note,
-        }).eq("id", editingId);
+        const { error: updErr } = await supabase
+          .from("responses")
+          .update({
+            rater_role: raterRole,
+            rater_name: raterName || null,
+            qualitative_note: note,
+          })
+          .eq("id", editingId);
         if (updErr) throw updErr;
 
         // Wipe old scores to replace cleanly
@@ -199,11 +213,17 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
       }
 
       if (scoreInserts.length > 0) {
-        const { error: scoreErr } = await supabase.from("scores").insert(scoreInserts);
+        const { error: scoreErr } = await supabase
+          .from("scores")
+          .insert(scoreInserts);
         if (scoreErr) throw scoreErr;
       }
 
-      toast.success(editingId ? "Evaluasi berhasil diubah." : "Evaluasi berhasil ditambahkan.");
+      toast.success(
+        editingId
+          ? "Evaluasi berhasil diubah."
+          : "Evaluasi berhasil ditambahkan."
+      );
       setIsModalOpen(false);
       fetchResponses();
       onDataChanged();
@@ -219,7 +239,7 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
     if (!isNaN(num)) {
       if (num < 1) num = 1;
       if (num > 7) num = 7;
-      setScores(prev => ({ ...prev, [indicatorId]: num }));
+      setScores((prev) => ({ ...prev, [indicatorId]: num }));
     } else {
       const next = { ...scores };
       delete next[indicatorId];
@@ -240,20 +260,30 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
         </div>
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" onClick={openNewForm} className="bg-blue-600 hover:bg-blue-700 h-8">
+            <Button
+              size="sm"
+              onClick={openNewForm}
+              className="bg-blue-600 hover:bg-blue-700 h-8"
+            >
               <Plus className="h-4 w-4 mr-1" />
               Evaluasi Baru
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editingId ? "Edit Evaluasi" : "Tambah Evaluasi Baru"}</DialogTitle>
+              <DialogTitle>
+                {editingId ? "Edit Evaluasi" : "Tambah Evaluasi Baru"}
+              </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-6 mt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Peran Evaluator</Label>
-                  <Select value={raterRole} onValueChange={setRaterRole} disabled={!!editingId}>
+                  <Select
+                    value={raterRole}
+                    onValueChange={setRaterRole}
+                    disabled={!!editingId}
+                  >
                     <SelectTrigger className="bg-white">
                       <SelectValue placeholder="Pilih Peran..." />
                     </SelectTrigger>
@@ -265,16 +295,29 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
                       ))}
                     </SelectContent>
                   </Select>
-                  {!raterRole && <p className="text-xs text-orange-500">Pilih peran untuk membuka akses indikator berdasarkan Matrix.</p>}
+                  {!raterRole && (
+                    <p className="text-xs text-orange-500">
+                      Pilih peran untuk membuka akses indikator berdasarkan
+                      Matrix.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Nama Penilai</Label>
+                  <Input
+                    placeholder="Nama evaluator (opsional)"
+                    value={raterName}
+                    onChange={(e) => setRaterName(e.target.value)}
+                  />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label>Catatan Kualitatif</Label>
-                <Textarea 
-                  placeholder="Berikan observasi Anda..." 
-                  value={note} 
-                  onChange={(e) => setNote(e.target.value)} 
+                <Textarea
+                  placeholder="Berikan observasi Anda..."
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
                   rows={3}
                 />
               </div>
@@ -286,19 +329,31 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
                       <TableRow>
                         <TableHead className="w-10">ID</TableHead>
                         <TableHead>Indikator</TableHead>
-                        <TableHead className="w-[120px] text-center">Skor (1-7)</TableHead>
+                        <TableHead className="w-[120px] text-center">
+                          Skor (1-7)
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {Object.entries(INDICATOR_DESC).map(([idxStr, desc]) => {
                         const i = parseInt(idxStr);
-                        const isAllowed = ROLE_MATRIX[i].includes(raterRole);
+                        const isAllowed =
+                          ROLE_MATRIX[i].includes(raterRole);
                         return (
-                          <TableRow key={i} className={isAllowed ? "" : "bg-slate-100 opacity-50"}>
+                          <TableRow
+                            key={i}
+                            className={
+                              isAllowed ? "" : "bg-slate-100 opacity-50"
+                            }
+                          >
                             <TableCell>{i}</TableCell>
                             <TableCell className="max-w-md">
                               <p className="text-xs text-slate-700">{desc}</p>
-                              {!isAllowed && <span className="text-[10px] text-red-500 font-medium">Terkunci (Di luar Matrix)</span>}
+                              {!isAllowed && (
+                                <span className="text-[10px] text-red-500 font-medium">
+                                  Terkunci (Di luar Matrix)
+                                </span>
+                              )}
                             </TableCell>
                             <TableCell className="text-center">
                               <Input
@@ -306,7 +361,9 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
                                 min={1}
                                 max={7}
                                 value={scores[i] || ""}
-                                onChange={(e) => handleScoreChange(i, e.target.value)}
+                                onChange={(e) =>
+                                  handleScoreChange(i, e.target.value)
+                                }
                                 disabled={!isAllowed}
                                 className="w-16 mx-auto text-center h-8"
                                 placeholder={isAllowed ? "4" : "N/A"}
@@ -322,11 +379,23 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
               )}
 
               <div className="flex justify-end gap-2">
-                <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)}>
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                >
                   Batal
                 </Button>
-                <Button type="submit" disabled={saving || !raterRole} className="bg-blue-600 hover:bg-blue-700">
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                <Button
+                  type="submit"
+                  disabled={saving || !raterRole}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
                   {saving ? "Menyimpan..." : "Simpan Evaluasi"}
                 </Button>
               </div>
@@ -336,16 +405,21 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>
+          <div className="flex justify-center p-8">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+          </div>
         ) : responses.length === 0 ? (
-          <p className="text-center text-slate-400 text-sm py-8">Belum ada evaluasi untuk PO ini di periode aktif.</p>
+          <p className="text-center text-slate-400 text-sm py-8">
+            Belum ada evaluasi untuk PO ini di periode aktif.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Evaluator Role</TableHead>
-                  <TableHead className="w-[400px]">Catatan</TableHead>
+                  <TableHead>Nama Penilai</TableHead>
+                  <TableHead className="w-[300px]">Catatan</TableHead>
                   <TableHead>Tanggal Submit</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
@@ -357,12 +431,22 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
                       {res.rater_role.replace("_", " ")}
                     </TableCell>
                     <TableCell className="text-slate-600 text-sm">
+                      {res.rater_name || (
+                        <span className="text-slate-400 italic">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-slate-600 text-sm">
                       {res.qualitative_note ? (
-                        <p className="truncate max-w-[400px]" title={res.qualitative_note}>
+                        <p
+                          className="truncate max-w-[400px]"
+                          title={res.qualitative_note}
+                        >
                           {res.qualitative_note}
                         </p>
                       ) : (
-                        <span className="text-slate-400 italic">Tidak ada catatan</span>
+                        <span className="text-slate-400 italic">
+                          Tidak ada catatan
+                        </span>
                       )}
                     </TableCell>
                     <TableCell className="text-slate-500 text-xs tabular-nums">
@@ -370,10 +454,20 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => openEditForm(res)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-blue-600"
+                          onClick={() => openEditForm(res)}
+                        >
                           <Edit2 className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDelete(res.id)}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-500"
+                          onClick={() => handleDelete(res.id)}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>

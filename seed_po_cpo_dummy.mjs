@@ -103,7 +103,7 @@ async function seedData() {
             id: randomUUID(),
             response_id: responseId,
             indicator_id: indicatorId,
-            score: 0,
+            score: 1,
             is_na: true
           });
       }

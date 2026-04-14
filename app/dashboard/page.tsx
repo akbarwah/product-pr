@@ -411,7 +411,7 @@ export default function OverviewPage() {
                     <TableHead>Indikator</TableHead>
                     <TableHead className="whitespace-nowrap">Kategori</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Self</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Aktual (Peer)</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Tim</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Gap</TableHead>
                     <TableHead>Flag</TableHead>
                   </TableRow>

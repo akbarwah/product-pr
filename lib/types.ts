@@ -1,5 +1,5 @@
 // ============================================================
-// TypeScript Interfaces — Performance Evaluation Dashboard
+// TypeScript Interfaces - Performance Evaluation Dashboard
 // ============================================================
 
 export interface EvaluationPeriod {
@@ -32,6 +32,7 @@ export interface Response {
   period_id: string;
   po_id: string;
   rater_role: string;
+  rater_name: string | null;  // ← ADDED THIS LINE
   submitted_at: string;
   qualitative_note: string | null;
   scores?: Score[];
@@ -75,21 +76,21 @@ export interface GapAnalysis {
 }
 
 export const ROLE_MATRIX: Record<number, string[]> = {
-  1: ['lead_po','cpo','sa','pm','self'],
-  2: ['lead_po','cpo','sa','ui_ux','pm','self'],
-  3: ['lead_po','cpo','sa','qa','pm','self'],
-  4: ['lead_po','cpo','sa','ui_ux','pm','self'],
-  5: ['lead_po','cpo','sa','dev','qa','pm','self'],
-  6: ['lead_po','cpo','sa','ui_ux','dev','qa','pm','self'],
-  7: ['lead_po','cpo','sa','ui_ux','dev','qa','pm','self'],
-  8: ['lead_po','cpo','sa','dev','pm','self'],
-  9: ['lead_po','cpo','sa','pm','self'],
-  10: ['lead_po','cpo','sa','dev','qa','pm','self'],
-  11: ['lead_po','cpo','sa','pm','self'],
-  12: ['lead_po','cpo','sa','ui_ux','dev','qa','pm','self'],
-  13: ['lead_po','cpo','sa','dev','qa','pm','self'],
-  14: ['lead_po','cpo','sa','pm','self'],
-  15: ['lead_po','cpo','sa','ui_ux','pm','self'],
+  1: ['lead_po', 'cpo', 'sa', 'pm', 'self'],
+  2: ['lead_po', 'cpo', 'sa', 'ui_ux', 'pm', 'self'],
+  3: ['lead_po', 'cpo', 'sa', 'qa', 'pm', 'self'],
+  4: ['lead_po', 'cpo', 'sa', 'ui_ux', 'pm', 'self'],
+  5: ['lead_po', 'cpo', 'sa', 'dev', 'qa', 'pm', 'self'],
+  6: ['lead_po', 'cpo', 'sa', 'ui_ux', 'dev', 'qa', 'pm', 'self'],
+  7: ['lead_po', 'cpo', 'sa', 'ui_ux', 'dev', 'qa', 'pm', 'self'],
+  8: ['lead_po', 'cpo', 'sa', 'dev', 'pm', 'self'],
+  9: ['lead_po', 'cpo', 'sa', 'pm', 'self'],
+  10: ['lead_po', 'cpo', 'sa', 'dev', 'qa', 'pm', 'self'],
+  11: ['lead_po', 'cpo', 'sa', 'pm', 'self'],
+  12: ['lead_po', 'cpo', 'sa', 'ui_ux', 'dev', 'qa', 'pm', 'self'],
+  13: ['lead_po', 'cpo', 'sa', 'dev', 'qa', 'pm', 'self'],
+  14: ['lead_po', 'cpo', 'sa', 'pm', 'self'],
+  15: ['lead_po', 'cpo', 'sa', 'ui_ux', 'pm', 'self'],
 };
 
 export interface QualitativeNote {

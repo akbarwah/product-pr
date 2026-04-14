@@ -304,7 +304,7 @@ export default function GapAnalysisPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold text-slate-800">
-                Self vs Actual — {selectedPO?.name}
+                Self vs Actual - {selectedPO?.name}
               </CardTitle>
               <p className="text-xs text-slate-500">
                 Gap positif = PO menilai dirinya lebih tinggi (blind spot); negatif = low confidence
@@ -368,7 +368,7 @@ export default function GapAnalysisPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold text-slate-800">
-                Heatmap Gap — Semua PO
+                Heatmap Gap - Semua PO
               </CardTitle>
               <p className="text-xs text-slate-500">
                 Nilai: gap_self_vs_actual. Merah = blind spot, Biru = low confidence
@@ -421,7 +421,7 @@ export default function GapAnalysisPage() {
                                     <div className="px-2 py-2 cursor-default w-full h-full">
                                       {gap !== null
                                         ? (gap > 0 ? "+" : "") + gap.toFixed(1)
-                                        : "—"}
+                                        : "-"}
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent>

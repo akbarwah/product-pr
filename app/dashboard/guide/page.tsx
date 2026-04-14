@@ -50,12 +50,12 @@ export default function GuidePage() {
         <CardHeader className="border-b border-slate-100 bg-slate-50/50">
           <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
             <Scaling className="h-5 w-5 text-purple-600" />
-            2. Rumus Konstruksi Penilaian "Aktual (Peer)"
+            2. Rumus Konstruksi Penilaian "Tim"
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           <p className="text-sm text-slate-600 leading-relaxed mb-4">
-            Rapor kolom pilar <strong>Aktual (Peer)</strong> adalah perpaduan skor terbobot <i>(Weighted Average)</i> dari sudut pandang manajerial atas (Lead PO) dan sudut pandang eksekutor bawah (Developer/QA/UIUX). Bobot suara divariasikan secara logis menyesuaikan dengan siapa ranah indikator itu lebih condong:
+            Rapor kolom pilar <strong>Tim</strong> adalah perpaduan skor terbobot <i>(Weighted Average)</i> dari sudut pandang manajerial atas (Lead PO/CPO) dan sudut pandang eksekutor bawah (Developer/QA/UIUX). Bobot suara divariasikan secara logis menyesuaikan dengan siapa ranah indikator itu lebih condong:
           </p>
 
           <div className="overflow-x-auto">
@@ -109,7 +109,7 @@ export default function GuidePage() {
         </CardHeader>
         <CardContent className="pt-6">
           <p className="text-sm text-slate-600 leading-relaxed mb-4">
-            Secara fundamental, <strong className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">Gap = Skor Diri Sendiri (Self) − Skor Aktual Gabungan</strong>. Menilai rapor bukan sekadar mencari siapa dengan nilai aktual tertumpuk tertinggi, tetapi krusial menilik <i>Blind Spot</i>/Kesenjangan kematangan empati profesionalnya dengan parameter penanda (Flag) perindikator berikut:
+            Secara fundamental, <strong className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">Gap = Skor Diri Sendiri (Self) - Skor Tim</strong>. Menilai rapor bukan sekadar mencari siapa dengan nilai Tim tertinggi, tetapi krusial menilik <i>Blind Spot</i>/Kesenjangan kematangan empati profesionalnya dengan parameter penanda (Flag) perindikator berikut:
           </p>
 
           <div className="space-y-4">

@@ -14,10 +14,10 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useSortableTable, SortableHead } from "@/components/sortable-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -45,6 +45,7 @@ export default function PeriodsManager() {
   const [periods, setPeriods] = useState<EvaluationPeriod[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { sorted: sortedPeriods, sort: periodSort, handleSort: handlePeriodSort } = useSortableTable(periods, { column: "start_date", direction: "desc" });
   
   // Form state
   const [name, setName] = useState("");
@@ -239,15 +240,15 @@ export default function PeriodsManager() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50">
-                  <TableHead>Nama Siklus</TableHead>
-                  <TableHead>Tipe</TableHead>
-                  <TableHead>Masa Periode</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
+                  <SortableHead column="name" label="Nama Siklus" currentSort={periodSort} onSort={handlePeriodSort} />
+                  <SortableHead column="type" label="Tipe" currentSort={periodSort} onSort={handlePeriodSort} />
+                  <SortableHead column="start_date" label="Masa Periode" currentSort={periodSort} onSort={handlePeriodSort} />
+                  <SortableHead column="is_active" label="Status" currentSort={periodSort} onSort={handlePeriodSort} className="text-center" />
+                  <SortableHead column="" label="Aksi" currentSort={{ column: null, direction: null }} onSort={() => {}} className="text-right" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {periods.map((p) => (
+                {sortedPeriods.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium text-slate-800">{p.name}</TableCell>
                     <TableCell>

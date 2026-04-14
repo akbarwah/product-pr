@@ -138,7 +138,7 @@ export default function BulkImport() {
               let scoreVal = parseInt(scoreRaw, 10);
               
               if (isNa || isNaN(scoreVal)) {
-                scoreVal = 0;
+                scoreVal = 1;
               }
 
               // Restrict to 1-7 bounds if not NA

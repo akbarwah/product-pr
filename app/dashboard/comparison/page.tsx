@@ -265,7 +265,7 @@ export default function ComparisonPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold text-slate-800">
-                Perbandingan Skor — {selectedPO?.name}
+                Perbandingan Skor - {selectedPO?.name}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -291,10 +291,10 @@ export default function ComparisonPage() {
                           {row.pre.indicator_name}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-sm">
-                          {row.pre.actual_score?.toFixed(2) ?? "—"}
+                          {row.pre.actual_score?.toFixed(2) ?? "-"}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-sm">
-                          {row.post?.actual_score?.toFixed(2) ?? "—"}
+                          {row.post?.actual_score?.toFixed(2) ?? "-"}
                         </TableCell>
                         <TableCell className="text-right tabular-nums text-sm">
                           {row.delta !== null ? (
@@ -311,7 +311,7 @@ export default function ComparisonPage() {
                               {row.delta.toFixed(2)}
                             </span>
                           ) : (
-                            "—"
+                            "-"
                           )}
                         </TableCell>
                         <TableCell>
@@ -340,7 +340,7 @@ export default function ComparisonPage() {
                             {avgDelta.toFixed(2)}
                           </span>
                         ) : (
-                          "—"
+                          "-"
                         )}
                       </TableCell>
                       <TableCell />
@@ -355,7 +355,7 @@ export default function ComparisonPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base font-semibold text-slate-800">
-                Overlay Radar — Pre vs Post
+                Overlay Radar - Pre vs Post
               </CardTitle>
             </CardHeader>
             <CardContent>

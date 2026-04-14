@@ -18,7 +18,7 @@ export function createServerClient() {
             cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2])
           );
         } catch {
-          // Server Component — cookie mutation ignored
+          // Server Component - cookie mutation ignored
         }
       },
     },

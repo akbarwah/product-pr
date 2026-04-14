@@ -12,13 +12,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { useSortableTable, SortableHead } from "@/components/sortable-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -42,6 +38,15 @@ export default function PoManager() {
   const [searchQuery, setSearchQuery] = useState("");
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Filtered POs (search)
+  const filteredPos = useMemo(() => {
+    if (!searchQuery.trim()) return pos;
+    const q = searchQuery.toLowerCase();
+    return pos.filter(p => p.name.toLowerCase().includes(q) || p.squad.toLowerCase().includes(q));
+  }, [pos, searchQuery]);
+
+  const { sorted: sortedPos, sort: poSort, handleSort: handlePoSort } = useSortableTable(filteredPos, { column: "name", direction: "asc" });
   
   // Form state
   const [name, setName] = useState("");
@@ -226,75 +231,67 @@ export default function PoManager() {
             <Input placeholder="Cari nama atau squad..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
           </div>
         </div>
-        {(() => {
-          const filtered = searchQuery.trim()
-            ? pos.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.squad.toLowerCase().includes(searchQuery.toLowerCase()))
-            : pos;
-          
-          if (loading) return (
-            <div className="py-12 flex justify-center">
-              <RefreshCw className="h-6 w-6 animate-spin text-slate-300" />
-            </div>
-          );
-          if (filtered.length === 0) return (
-            <div className="text-center py-10 text-slate-500 text-sm">
-              {searchQuery ? "Tidak ditemukan." : "Belum ada direktori PO. Silakan daftar baru."}
-            </div>
-          );
-          return (
-            <div className="overflow-x-auto rounded-md border mt-2">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50">
-                    <TableHead>Nama Individu</TableHead>
-                    <TableHead>Squad / Tribe</TableHead>
-                    <TableHead className="text-center">Visibilitas Filter</TableHead>
-                    <TableHead className="text-right">Aksi</TableHead>
+        {loading ? (
+          <div className="py-12 flex justify-center">
+            <RefreshCw className="h-6 w-6 animate-spin text-slate-300" />
+          </div>
+        ) : sortedPos.length === 0 ? (
+          <div className="text-center py-10 text-slate-500 text-sm">
+            {searchQuery ? "Tidak ditemukan." : "Belum ada direktori PO. Silakan daftar baru."}
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-md border mt-2">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <SortableHead column="name" label="Nama Individu" currentSort={poSort} onSort={handlePoSort} />
+                  <SortableHead column="squad" label="Squad / Tribe" currentSort={poSort} onSort={handlePoSort} />
+                  <SortableHead column="is_active" label="Visibilitas" currentSort={poSort} onSort={handlePoSort} className="text-center" />
+                  <SortableHead column="" label="Aksi" currentSort={{ column: null, direction: null }} onSort={() => {}} className="text-right" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedPos.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium text-slate-800">{p.name}</TableCell>
+                    <TableCell className="text-slate-600">{p.squad}</TableCell>
+                    <TableCell className="text-center">
+                      {p.is_active ? (
+                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 shadow-none">Muncul</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-400 shadow-none">Disembunyikan</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant={p.is_active ? "ghost" : "outline"}
+                          size="sm"
+                          className={p.is_active ? "text-slate-400 hover:text-red-600" : "text-blue-600"}
+                          onClick={() => toggleActiveStatus(p.id, p.is_active)}
+                        >
+                          {p.is_active ? (
+                            <><PowerOff className="h-3 w-3 mr-1" /> Sembunyikan</>
+                          ) : (
+                            <><Power className="h-3 w-3 mr-1" /> Munculkan</>
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDelete(p.id, p.name)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium text-slate-800">{p.name}</TableCell>
-                      <TableCell className="text-slate-600">{p.squad}</TableCell>
-                      <TableCell className="text-center">
-                        {p.is_active ? (
-                          <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 shadow-none">Muncul</Badge>
-                        ) : (
-                          <Badge variant="secondary" className="bg-slate-100 text-slate-400 shadow-none">Disembunyikan</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant={p.is_active ? "ghost" : "outline"}
-                            size="sm"
-                            className={p.is_active ? "text-slate-400 hover:text-red-600" : "text-blue-600"}
-                            onClick={() => toggleActiveStatus(p.id, p.is_active)}
-                          >
-                            {p.is_active ? (
-                              <><PowerOff className="h-3 w-3 mr-1" /> Sembunyikan</>
-                            ) : (
-                              <><Power className="h-3 w-3 mr-1" /> Munculkan</>
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleDelete(p.id, p.name)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          );
-        })()}
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

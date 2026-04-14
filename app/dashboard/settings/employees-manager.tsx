@@ -8,8 +8,9 @@ import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table, TableBody, TableCell, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { useSortableTable, SortableHead } from "@/components/sortable-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -127,6 +128,8 @@ export default function EmployeesManager() {
       )
     : employees;
 
+  const { sorted: sortedEmployees, sort: empSort, handleSort: handleEmpSort } = useSortableTable(filtered, { column: "name", direction: "asc" });
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -231,15 +234,15 @@ export default function EmployeesManager() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50">
-                  <TableHead>Nama</TableHead>
-                  <TableHead>Jabatan</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
+                  <SortableHead column="name" label="Nama" currentSort={empSort} onSort={handleEmpSort} />
+                  <SortableHead column="position" label="Jabatan" currentSort={empSort} onSort={handleEmpSort} />
+                  <SortableHead column="rater_role" label="Role" currentSort={empSort} onSort={handleEmpSort} />
+                  <SortableHead column="is_active" label="Status" currentSort={empSort} onSort={handleEmpSort} className="text-center" />
+                  <SortableHead column="" label="Aksi" currentSort={{ column: null, direction: null }} onSort={() => {}} className="text-right" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((emp) => (
+                {sortedEmployees.map((emp) => (
                   <TableRow key={emp.id}>
                     <TableCell className="font-medium text-slate-800">{emp.name}</TableCell>
                     <TableCell className="text-slate-600 text-sm">{emp.position}</TableCell>

@@ -155,6 +155,7 @@ export default function ManualInput() {
         period_id: selectedPeriod,
         po_id: selectedPo,
         rater_role: resolvedRole,
+        rater_name: selectedEmployeeObj?.name || null,
         qualitative_note: note || null,
         submitted_at: new Date().toISOString(),
       });
@@ -167,7 +168,7 @@ export default function ManualInput() {
           id: crypto.randomUUID(),
           response_id: responseId,
           indicator_id: i,
-          score: isAllowed ? (scores[i] ?? 4) : 0,
+          score: isAllowed ? (scores[i] ?? 4) : 1,
           is_na: !isAllowed,
         });
       }
@@ -224,7 +225,7 @@ export default function ManualInput() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base font-semibold text-slate-800">Form Penilaian Manual</CardTitle>
-              <CardDescription className="text-sm">Isikan skor 1—7 (BARS) untuk setiap indikator.</CardDescription>
+              <CardDescription className="text-sm">Isikan skor 1-7 (BARS) untuk setiap indikator.</CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={() => setStep("select")}>← Kembali</Button>
           </div>
@@ -263,10 +264,10 @@ export default function ManualInput() {
                             <TableCell className="font-mono text-slate-400 text-xs">{i}</TableCell>
                             <TableCell>
                               <p className="text-xs font-medium text-slate-700">{meta.name}</p>
-                              {!isAllowed && <span className="text-[10px] text-red-400">N/A — Di luar hak evaluasi role ini</span>}
+                              {!isAllowed && <span className="text-[10px] text-red-400">N/A - Di luar hak evaluasi role ini</span>}
                             </TableCell>
                             <TableCell className="text-center">
-                              <Input type="number" min={1} max={7} value={scores[i] ?? ""} onChange={(e) => handleScoreChange(i, e.target.value)} disabled={!isAllowed} className="w-16 mx-auto text-center h-8" placeholder={isAllowed ? "—" : "N/A"} />
+                              <Input type="number" min={1} max={7} value={scores[i] ?? ""} onChange={(e) => handleScoreChange(i, e.target.value)} disabled={!isAllowed} className="w-16 mx-auto text-center h-8" placeholder={isAllowed ? "-" : "N/A"} />
                             </TableCell>
                           </TableRow>
                         );
@@ -322,7 +323,7 @@ export default function ManualInput() {
               <SelectTrigger><SelectValue placeholder="Pilih PO..." /></SelectTrigger>
               <SelectContent>
                 {pos.filter(p => p.is_active).map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name} — {p.squad}</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>{p.name} - {p.squad}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -334,7 +335,7 @@ export default function ManualInput() {
               <SelectContent className="max-h-[300px]">
                 {employees.map((emp) => (
                   <SelectItem key={emp.id} value={emp.id}>
-                    {emp.name} — {emp.position}
+                    {emp.name} - {emp.position}
                   </SelectItem>
                 ))}
               </SelectContent>
