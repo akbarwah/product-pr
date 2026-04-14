@@ -10,52 +10,54 @@ export default function GuidePage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Panduan & Glosarium Sistem</h1>
         <p className="text-slate-500 text-sm mt-0.5">
-          Basis metodologi skoring dan panduan analitik untuk membaca kinerja Product Owner.
+          Penjelasan metodologi skoring dan cara membaca hasil penilaian kinerja Product Owner.
         </p>
       </div>
 
+      {/* SECTION 1 */}
       <Card>
         <CardHeader className="border-b border-slate-100 bg-slate-50/50">
           <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
             <Target className="h-5 w-5 text-blue-600" />
-            1. Latar Belakang & Pendekatan Utama
+            1. Latar Belakang & Pendekatan
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6 space-y-6">
           <div>
             <h3 className="font-semibold text-slate-800 mb-2">A. Targeted Review</h3>
             <p className="text-sm text-slate-600 leading-relaxed mb-3">
-              Metode evaluasi yang dikembangkan diutamakan membasmi bias (penilaian subyektif membabi buta). Penilai <i>(Rater)</i> diawasi oleh <strong>Role Matrix</strong>: mereka HANYA diperbolehkan menilai indikator yang betul-betul dikomunikasikan dan terpapar di keseharian pekerjaan mereka dengan sang PO.
+              Sistem ini dirancang supaya penilaian dilakukan secara presisi dan objektif sesuai domainnya. Setiap penilai <i>(Rater)</i> hanya bisa menilai indikator yang memang mereka ketahui dan alami langsung dalam pekerjaan sehari-hari bersama PO yang bersangkutan. Pembatasan ini diatur lewat <strong>Role Matrix</strong>.
             </p>
             <p className="text-sm text-slate-600 leading-relaxed bg-blue-50 p-3 rounded-lg border border-blue-100 italic">
-              <strong>Contoh:</strong> Seorang Developer tidak dirancang untuk menilai &quot;Taktik Stakeholder &amp; Regulator Eksternal&quot;, karena ia tidak hadir di <i>meeting</i> tersebut. Mereka akan difokuskan untuk menilai &quot;Kelengkapan PRD &amp; Eksekusi Sprint&quot;.
+              <strong>Contoh:</strong> Developer tidak akan diminta menilai &quot;Kemampuan Lobby Stakeholder & Regulator Eksternal&quot; karena mereka tidak ikut ada di proses tersebut. Sebaliknya, mereka fokus menilai hal yang mereka rasakan langsung, seperti &quot;Kelengkapan PRD & Eksekusi Sprint&quot;.
             </p>
           </div>
 
           <div>
             <h3 className="font-semibold text-slate-800 mb-2">B. Skala BARS (Behaviorally Anchored Rating Scale)</h3>
             <p className="text-sm text-slate-600 leading-relaxed">
-              Skor bernilai <strong>1 hingga 7</strong> yang digunakan saat ini bukan bertumpu pada indikator <i>feeling</i> bebas, melainkan berjangkar kuat atas manifestasi perilaku nyata (<i>Behavioral Anchors</i>). Semua individu yang mengisi wajib memutus nilai dari ingatan akan praktik nyata di operasional.
+              Skala yang dipakai adalah <strong>1 sampai 7</strong>. Setiap angka punya patokan perilaku konkret, bukan sekadar &quot;bagus&quot; atau &quot;kurang&quot;. Jadi penilai harus mengacu pada kejadian nyata di lapangan, bukan perasaan.
             </p>
             <ul className="mt-3 space-y-2 text-sm text-slate-600 ml-5 list-disc">
-              <li><strong className="text-red-600">Nilai 1-2 (Kritis):</strong> Secara konsisten menghambat kelancaran produk/tim.</li>
-              <li><strong className="text-blue-600">Nilai 4 (Standar/Baik):</strong> Berjalan kompeten memenuhi segala ekspektasi fungsi harian.</li>
-              <li><strong className="text-emerald-600">Nilai 7 (Luar Biasa/Role Model):</strong> Sangat proaktif mentransformasi masalah menjadi sebuah keunggulan bisnis (<i>beyond expectations</i>).</li>
+              <li><strong className="text-red-600">Nilai 1 (Kritis):</strong> Secara konsisten menghambat kelancaran produk atau tim.</li>
+              <li><strong className="text-blue-600">Nilai 4 (Memenuhi Ekspektasi):</strong> Menjalankan fungsinya dengan baik sesuai standar.</li>
+              <li><strong className="text-emerald-600">Nilai 7 (Luar Biasa):</strong> Melampaui ekspektasi, proaktif mengubah masalah jadi peluang bisnis.</li>
             </ul>
           </div>
         </CardContent>
       </Card>
 
+      {/* SECTION 2 */}
       <Card>
         <CardHeader className="border-b border-slate-100 bg-slate-50/50">
           <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
             <Scaling className="h-5 w-5 text-purple-600" />
-            2. Rumus Konstruksi Penilaian "Tim"
+            2. Cara Menghitung Skor &quot;Tim&quot;
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           <p className="text-sm text-slate-600 leading-relaxed mb-4">
-            Rapor kolom pilar <strong>Tim</strong> adalah perpaduan skor terbobot <i>(Weighted Average)</i> dari sudut pandang manajerial atas (Lead PO/CPO) dan sudut pandang eksekutor bawah (Developer/QA/UIUX). Bobot suara divariasikan secara logis menyesuaikan dengan siapa ranah indikator itu lebih condong:
+            Skor <strong>Tim</strong> merupakan rata-rata terbobot (<i>Weighted Average</i>) yang menggabungkan dua sudut pandang: dari atas (Lead PO / CPO) dan dari rekan kerja (Developer, QA, UI/UX, SA, Project Manager). Bobotnya disesuaikan dengan siapa yang paling relevan menilai indikator tersebut:
           </p>
 
           <div className="overflow-x-auto">
@@ -63,9 +65,9 @@ export default function GuidePage() {
               <thead>
                 <tr className="bg-slate-100 text-slate-700">
                   <th className="p-3 border font-semibold w-1/4">Kategori Indikator</th>
-                  <th className="p-3 border font-semibold text-center w-[160px]">Bobot Kacamata Lead PO</th>
-                  <th className="p-3 border font-semibold text-center w-[180px]">Bobot Kacamata Tim Operasional</th>
-                  <th className="p-3 border font-semibold">Tujuan Logika (<i>Rationale</i>)</th>
+                  <th className="p-3 border font-semibold text-center w-[160px]">Bobot Lead PO / CPO</th>
+                  <th className="p-3 border font-semibold text-center w-[180px]">Bobot Tim Operasional</th>
+                  <th className="p-3 border font-semibold">Rasionalisasi</th>
                 </tr>
               </thead>
               <tbody className="text-slate-600 align-top">
@@ -73,46 +75,50 @@ export default function GuidePage() {
                   <td className="p-3 border font-medium">Strategic &amp; Analytical Rigor</td>
                   <td className="p-3 border text-center font-bold text-slate-800">50%</td>
                   <td className="p-3 border text-center font-bold text-slate-800">50%</td>
-                  <td className="p-3 border text-xs">Visi strategis dituntut terbukti tajam di mata eksekutif, sekaligus tertransformasi secara analitis ke lapangan.</td>
+                  <td className="p-3 border text-xs">Visi strategis harus tajam di mata manajemen yang berhubungan langsung dengan eksekusi di lapangan.   bobotnya seimbang.</td>
                 </tr>
                 <tr className="bg-slate-50/50">
                   <td className="p-3 border font-medium">Product Rigor &amp; Specification</td>
                   <td className="p-3 border text-center font-bold text-slate-800">30%</td>
                   <td className="p-3 border text-center font-bold text-slate-800">70%</td>
-                  <td className="p-3 border text-xs">Desain produk (PRD/GTM) merupakan nyawa bagi <i>engineers</i> &amp; desainer, mereka berhak mendapat porsi keluh kesah tertinggi.</td>
+                  <td className="p-3 border text-xs">PRD dan spesifikasi produk adalah &quot;makanan sehari-hari&quot; engineer dan desainer. Mereka yang paling merasakan jika dokumennya kurang jelas atau berubah-ubah.</td>
                 </tr>
                 <tr>
                   <td className="p-3 border font-medium">Operational Execution</td>
                   <td className="p-3 border text-center font-bold text-slate-800">30%</td>
                   <td className="p-3 border text-center font-bold text-slate-800">70%</td>
-                  <td className="p-3 border text-xs">Manajemen <i>timeline sprint daily</i> seutuhnya dirasakan secara psikologis oleh ritme tenaga gerak dalam <i>squad</i>.</td>
+                  <td className="p-3 border text-xs">Soal manajemen timeline dan ritme sprint, tim operasional yang paling kena dampaknya langsung setiap hari.</td>
                 </tr>
                 <tr className="bg-slate-50/50">
                   <td className="p-3 border font-medium">Stakeholder &amp; Market Advocacy</td>
                   <td className="p-3 border text-center font-bold text-slate-800">60%</td>
                   <td className="p-3 border text-center font-bold text-slate-800">40%</td>
-                  <td className="p-3 border text-xs">Lobi politik internal perusahaan &amp; diplomasi luar (Regulator) utamanya dipantau oleh struktur Lead &amp; VPs.</td>
+                  <td className="p-3 border text-xs">Urusan lobby internal dan diplomasi ke pihak luar (regulator, partner) lebih banyak terpantau oleh Lead dan VP.</td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-slate-400 mt-3 italic">* Catatan: Jika entitas penilai kosong pada salah satu spektrum (misal: Lead PO belum turut serta menilai), matriks akan dinamis menarik porsi rata-rata murni 100% dari kolom ketersediaan data guna menjaga data agar tidak patah.</p>
+          <p className="text-xs text-slate-400 mt-3 italic">
+            * Kalau salah satu pihak belum mengisi (misal: Lead PO belum menilai), sistem otomatis pakai rata-rata murni dari data yang tersedia supaya hasilnya tetap bisa dibaca.
+          </p>
         </CardContent>
       </Card>
 
+      {/* SECTION 3 */}
       <Card>
         <CardHeader className="border-b border-slate-100 bg-slate-50/50">
           <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
             <Layers className="h-5 w-5 text-emerald-600" />
-            3. Pemahaman Indikator <i>Gap Analysis</i>
+            3. Cara Membaca Gap Analysis
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           <p className="text-sm text-slate-600 leading-relaxed mb-4">
-            Secara fundamental, <strong className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">Gap = Skor Diri Sendiri (Self) - Skor Tim</strong>. Menilai rapor bukan sekadar mencari siapa dengan nilai Tim tertinggi, tetapi krusial menilik <i>Blind Spot</i>/Kesenjangan kematangan empati profesionalnya dengan parameter penanda (Flag) perindikator berikut:
+            Secara fundamental, <strong className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">Gap = Skor Self - Skor Tim</strong>. Namun jangan hanya berfokus pada siapa yang skornya paling tinggi. Karena yang lebih penting untuk ditindaklanjuti adalah <strong>seberapa jauh jarak (gap) antara penilaian diri sendiri dengan penilaian orang lain</strong>. Berikut panduannya:
           </p>
 
           <div className="space-y-4">
+            {/* Critical */}
             <div className="flex gap-4 p-4 border border-red-100 bg-red-50/30 rounded-xl items-start">
               <div className="shrink-0 pt-0.5">
                 <Badge variant="destructive">Critical</Badge>
@@ -120,42 +126,45 @@ export default function GuidePage() {
               <div>
                 <h4 className="font-semibold text-red-900 text-sm">Gap Positif Ekstrim (≥ 1.5)</h4>
                 <p className="text-sm text-red-800/80 mt-1">
-                  Karakter <strong>Overconfident</strong> (terlalu percaya diri membabi buta). Sang Evaluator PO menganggap karyanya nir-kerapuhan (misal memberi poin dirinya 6.5), sedangkan satu divisi secara solid frustrasi hanya memberinya poin rata-rata 4. Menemukan area berlabel "Critical" mewajibkan agenda tatap muka 1-on-1 (<i>Coaching Session</i>) dalam perbaikannya.
+                  Artinya PO merasa performanya sudah bagus, padahal tim menilai sebaliknya. Ini tanda <strong>overconfident</strong> atau blind spot. Misalnya dia kasih dirinya skor 6.5, tapi tim cuma kasih rata-rata 4. Kalau ada indikator yang masuk zona ini, <strong>perlu dijadwalkan sesi 1-on-1</strong> untuk membahasnya.
                 </p>
               </div>
             </div>
 
+            {/* Moderate */}
             <div className="flex gap-4 p-4 border border-orange-100 bg-orange-50/30 rounded-xl items-start">
               <div className="shrink-0 pt-0.5">
                 <Badge variant="warning">Moderate</Badge>
               </div>
               <div>
-                <h4 className="font-semibold text-orange-900 text-sm">Gap Jarak Sedang (0.5 s/d 1.49)</h4>
+                <h4 className="font-semibold text-orange-900 text-sm">Gap Sedang (0.5 s/d 1.49)</h4>
                 <p className="text-sm text-orange-800/80 mt-1">
-                  Kesenjangan batas transisi yang cukup kasual (biasa terjadi). Memberi tanda bahwa ego ekspektasi personal PO sedikit mulai membelok jauh (<i>drifting</i>) dari apresiasi ritme teman sejawat. Butuh diselaraskan pemahaman ekspektasi teknisnya (<i>alignment</i>).
+                  Masih wajar terjadi, tapi sudah mulai ada selisih antara ekspektasi PO dengan kenyataan di tim. Perlu diselaraskan lewat obrolan ringan atau alignment session supaya tidak makin melebar.
                 </p>
               </div>
             </div>
 
+            {/* Consistent */}
             <div className="flex gap-4 p-4 border border-emerald-100 bg-emerald-50/30 rounded-xl items-start">
               <div className="shrink-0 pt-0.5">
                 <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200">Consistent</Badge>
               </div>
               <div>
-                <h4 className="font-semibold text-emerald-900 text-sm">Validitas Identik / Kolaborasi Kuat (&lt; 0.5 &amp; Skor Mendekati Negatif)</h4>
+                <h4 className="font-semibold text-emerald-900 text-sm">Gap Kecil atau Negatif (&lt; 0.5)</h4>
                 <p className="text-sm text-emerald-800/80 mt-1">
-                  Tingkat kematangan integritas observasi profesional yang sangat luhur. Apa yang diyakini si PO mengenai "kepiawaiannya" dinilai persis sama selaras oleh pihak bawahan / atasan. Termasuk apabila gap tersebut jatuh memminus (Skor Diri Sendiri &lt; Penilaian Orang), itu merefleksikan rasa kerendahan hatian yang matang (<i>Humble / Empathetic Underconfidence</i>).
+                  Ini kondisi ideal. Penilaian PO terhadap dirinya sendiri sejalan dengan apa yang dirasakan tim. Kalau gap-nya bahkan minus (skor self lebih rendah dari skor tim), itu pertanda bagus. PO-nya cenderung rendah hati dan tidak over-claim soal kemampuannya.
                 </p>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
-      
+
+      {/* TIP FOOTER */}
       <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl mt-8">
         <Info className="h-6 w-6 text-amber-600 shrink-0" />
         <p className="text-sm text-amber-800">
-          <strong>Tip bagi HR/Lead:</strong> Selalu mulai periksa dari halaman Rekap Overview menuju grafik Radar individual untuk menguak fenomena <i>"Blind Spot Ego"</i> para Product Owner Anda, selidiki pula <i>Raw Responses</i> (tulisan tangan kualitatif dari Penilai yang disajikan anonim).
+          <strong>Tips untuk HR / User:</strong> Mulai dari halaman <strong>Rekap Overview</strong>, lalu masuk ke grafik Radar per individu untuk melihat di mana gap terbesar masing-masing PO. Jangan lupa cek juga <strong>Raw Responses</strong>. Di sana ada catatan kualitatif dari rater yang sering kali lebih kaya konteks daripada sekedar   angka.
         </p>
       </div>
     </div>

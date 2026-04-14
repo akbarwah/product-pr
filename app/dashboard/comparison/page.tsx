@@ -142,8 +142,8 @@ export default function ComparisonPage() {
     const post = postData.find((p) => p.indicator_id === pre.indicator_id);
     const delta =
       post?.actual_score !== undefined &&
-      post?.actual_score !== null &&
-      pre.actual_score !== null
+        post?.actual_score !== null &&
+        pre.actual_score !== null
         ? (post.actual_score ?? 0) - (pre.actual_score ?? 0)
         : null;
     return { pre, post, delta };
@@ -152,7 +152,7 @@ export default function ComparisonPage() {
   const avgDelta =
     comparisonRows.filter((r) => r.delta !== null).length > 0
       ? comparisonRows.reduce((sum, r) => sum + (r.delta ?? 0), 0) /
-        comparisonRows.filter((r) => r.delta !== null).length
+      comparisonRows.filter((r) => r.delta !== null).length
       : null;
 
   // Radar data for overlay
@@ -235,7 +235,7 @@ export default function ComparisonPage() {
                 Data Post-test Belum Tersedia
               </h2>
               <p className="text-slate-500 text-sm">
-                Post-test akan dilaksanakan setelah program pengembangan selesai.
+                Post-test akan dilakukan setelah program intervensi pasca pre test selesai dilaksanakan.
               </p>
             </CardContent>
           </Card>
@@ -303,8 +303,8 @@ export default function ComparisonPage() {
                                 row.delta > 0
                                   ? "text-green-600 font-medium"
                                   : row.delta < 0
-                                  ? "text-red-600 font-medium"
-                                  : "text-slate-500"
+                                    ? "text-red-600 font-medium"
+                                    : "text-slate-500"
                               }
                             >
                               {row.delta > 0 ? "+" : ""}

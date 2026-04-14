@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import * as React from "react";
 import { useState } from "react";
 import Link from "next/link";
@@ -83,15 +84,19 @@ export function Sidebar() {
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600">
-          <BarChart3 className="h-5 w-5 text-white" />
-        </div>
+        <Image
+          src="/logo.png"
+          alt="Logo"
+          width={36}
+          height={36}
+          className="rounded-lg"
+        />
         {!collapsed && (
           <div>
             <p className="text-sm font-bold text-slate-900 leading-tight">
-              Performance
+              Tamtech International
             </p>
-            <p className="text-xs text-slate-500 leading-tight">Eval</p>
+            <p className="text-xs text-slate-500 leading-tight">Product Performance</p>
           </div>
         )}
       </div>
@@ -165,7 +170,7 @@ export function Sidebar() {
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-600">
             <BarChart3 className="h-4 w-4 text-white" />
           </div>
-          <span className="text-sm font-bold text-slate-900">Performance Eval</span>
+          <span className="text-sm font-bold text-slate-900">Performance Evaluation</span>
         </div>
         <Button
           variant="ghost"

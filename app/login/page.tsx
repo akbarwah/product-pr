@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BarChart3, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createBrowserClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -44,10 +45,15 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-blue-600 shadow-md mb-4">
-            <BarChart3 className="h-8 w-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900">Performance Eval</h1>
+          <Image
+            src="/logo.png"
+            alt="Logo Tamtech International"
+            width={64}
+            height={64}
+            className="mx-auto mb-4 rounded-2xl"
+            priority
+          />
+          <h1 className="text-2xl font-bold text-slate-900">Tamtech International</h1>
           <p className="text-slate-500 mt-1 text-sm">
             Dashboard Evaluasi Product Owner
           </p>
@@ -133,7 +139,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-slate-500 text-xs mt-6">
-          © 2025 Performance Evaluation System
+          © 2026 Product Performance Evaluation System
         </p>
       </div>
     </div>

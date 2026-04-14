@@ -455,7 +455,7 @@ export default function DetailPOPage() {
                     })}
                   </p>
                   <p className="text-xs mt-1 text-red-500 font-medium">
-                    Dokumen Rahasia - Hanya untuk Internal
+                    Confidential Document: Internal Use Only
                   </p>
                 </div>
               </div>
