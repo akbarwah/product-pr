@@ -467,7 +467,7 @@ export default function DetailPOPage() {
                   <p className="font-bold text-slate-800 mt-0.5">{selectedPO?.name ?? "-"}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wide">Squad</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">Tribe</p>
                   <p className="font-bold text-slate-800 mt-0.5">{selectedPO?.squad ?? "-"}</p>
                 </div>
                 <div>
@@ -531,7 +531,7 @@ export default function DetailPOPage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-semibold text-green-800 flex items-center gap-2">
                     <TrendingUp className="h-4 w-4" />
-                    Top 3 Kekuatan (Skor Tim Tertinggi)
+                    Top 3 Area Kekuatan
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -558,7 +558,7 @@ export default function DetailPOPage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-semibold text-red-800 flex items-center gap-2">
                     <TrendingDown className="h-4 w-4" />
-                    Top 3 Area Pengembangan (Skor Tim Terendah)
+                    Top 3 Area Pengembangan
                   </CardTitle>
                 </CardHeader>
                 <CardContent>

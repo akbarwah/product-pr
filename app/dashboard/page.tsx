@@ -49,9 +49,9 @@ import type { EvaluationPeriod, GapAnalysis } from "@/lib/types";
 
 function getBarColor(score: number | null): string {
   if (!score) return "#e2e8f0";
-  if (score >= 4.0) return "#10b981"; 
-  if (score >= 3.0) return "#f59e0b"; 
-  return "#ef4444"; 
+  if (score >= 4.0) return "#10b981";
+  if (score >= 3.0) return "#f59e0b";
+  return "#ef4444";
 }
 
 function StatCard({
@@ -178,9 +178,9 @@ export default function OverviewPage() {
   const avgScore =
     gapData.length > 0
       ? gapData
-          .filter((d) => d.actual_score !== null)
-          .reduce((sum, d) => sum + (d.actual_score ?? 0), 0) /
-        gapData.filter((d) => d.actual_score !== null).length
+        .filter((d) => d.actual_score !== null)
+        .reduce((sum, d) => sum + (d.actual_score ?? 0), 0) /
+      gapData.filter((d) => d.actual_score !== null).length
       : 0;
   const gapAlerts = gapData.filter(
     (d) => d.gap_flag === "critical" || d.gap_flag === "moderate"
@@ -428,8 +428,8 @@ export default function OverviewPage() {
                       <TableCell className="font-medium text-slate-900">
                         {row.po_name}
                       </TableCell>
-                      <TableCell 
-                        className="text-slate-600 text-sm max-w-[150px] sm:max-w-[250px] truncate" 
+                      <TableCell
+                        className="text-slate-600 text-sm max-w-[150px] sm:max-w-[250px] truncate"
                         title={row.indicator_name}
                       >
                         {row.indicator_name}
