@@ -98,7 +98,7 @@ export function RawResponsesTable({ periodId, poId, onDataChanged }: RawResponse
         .order("submitted_at", { ascending: false });
 
       if (error) throw error;
-      setResponses((data as Response[]) ?? []);
+      setResponses((data as unknown as Response[]) ?? []);
     } catch (err: any) {
       toast.error(err.message || "Gagal mengambil data raw responses.");
     } finally {

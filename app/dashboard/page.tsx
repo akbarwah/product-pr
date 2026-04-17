@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -8,6 +8,8 @@ import {
   TrendingUp,
   AlertTriangle,
   RefreshCw,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -35,6 +37,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { applyClientScoring } from "@/lib/scoring";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -110,6 +114,7 @@ export default function OverviewPage() {
   const [totalRaters, setTotalRaters] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedPOs, setExpandedPOs] = useState<Set<string>>(new Set());
 
   // Fetch periods
   useEffect(() => {
@@ -158,7 +163,10 @@ export default function OverviewPage() {
       if (gapRes.error) throw gapRes.error;
       if (raterRes.error) throw raterRes.error;
 
-      setGapData((gapRes.data as GapAnalysis[]) ?? []);
+      const rawData = (gapRes.data as GapAnalysis[]) ?? [];
+      const weightedData = applyClientScoring(rawData);
+
+      setGapData(weightedData);
       setTotalRaters(raterRes.count ?? 0);
     } catch (err: any) {
       console.error("fetchData:", err);
@@ -215,6 +223,47 @@ export default function OverviewPage() {
         Math.abs(b.gap_self_vs_actual ?? 0) -
         Math.abs(a.gap_self_vs_actual ?? 0)
     );
+
+  const alertGroups = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        po_id: string;
+        po_name: string;
+        critical: number;
+        moderate: number;
+        alerts: any[];
+      }
+    >();
+
+    for (const row of alertRows) {
+      if (!groups.has(row.po_id)) {
+        groups.set(row.po_id, {
+          po_id: row.po_id,
+          po_name: row.po_name,
+          critical: 0,
+          moderate: 0,
+          alerts: [],
+        });
+      }
+      const g = groups.get(row.po_id)!;
+      if (row.gap_flag === "critical") g.critical++;
+      if (row.gap_flag === "moderate") g.moderate++;
+      g.alerts.push(row);
+    }
+    return Array.from(groups.values()).sort(
+      (a, b) => b.critical - a.critical || b.moderate - a.moderate
+    );
+  }, [alertRows]);
+
+  const togglePO = (poId: string) => {
+    setExpandedPOs((prev) => {
+      const next = new Set(prev);
+      if (next.has(poId)) next.delete(poId);
+      else next.add(poId);
+      return next;
+    });
+  };
 
   const chartHeight = Math.max(poScores.length * 50, 200);
 
@@ -403,71 +452,110 @@ export default function OverviewPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>PO</TableHead>
-                    <TableHead>Indikator</TableHead>
-                    <TableHead className="whitespace-nowrap">Kategori</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Self</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Tim</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Gap</TableHead>
-                    <TableHead>Flag</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {alertRows.map((row, i) => (
-                    <TableRow
-                      key={`${row.po_id}-${row.indicator_id}-${i}`}
-                      className="cursor-pointer"
-                      onClick={() =>
-                        router.push(`/dashboard/detail?po=${row.po_id}`)
-                      }
+            <div className="space-y-3">
+              {alertGroups.map((group) => {
+                const isExpanded = expandedPOs.has(group.po_id);
+                return (
+                  <div key={group.po_id} className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                    {/* Header Toggle */}
+                    <div
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                      onClick={() => togglePO(group.po_id)}
                     >
-                      <TableCell className="font-medium text-slate-900">
-                        {row.po_name}
-                      </TableCell>
-                      <TableCell
-                        className="text-slate-600 text-sm max-w-[150px] sm:max-w-[250px] truncate"
-                        title={row.indicator_name}
-                      >
-                        {row.indicator_name}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="text-xs">
-                          {row.category}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-slate-600">
-                        {row.avg_self?.toFixed(1) ?? "N/A"}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums font-medium text-slate-800">
-                        {row.actual_score?.toFixed(2) ?? "N/A"}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        <span
-                          className={
-                            (row.gap_self_vs_actual ?? 0) > 0
-                              ? "text-red-500 font-medium"
-                              : "text-emerald-500 font-medium"
-                          }
-                        >
-                          {(row.gap_self_vs_actual ?? 0) > 0 ? "+" : ""}
-                          {row.gap_self_vs_actual?.toFixed(2) ?? "N/A"}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {row.gap_flag === "critical" ? (
-                          <Badge variant="destructive">Critical</Badge>
-                        ) : (
-                          <Badge variant="warning">Moderate</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      <div className="flex items-center gap-3">
+                        <div className="font-semibold text-slate-900">{group.po_name}</div>
+                        <div className="flex gap-2">
+                          {group.critical > 0 && (
+                            <Badge variant="destructive" className="h-6 px-2 text-[11px]">
+                              {group.critical} Critical
+                            </Badge>
+                          )}
+                          {group.moderate > 0 && (
+                            <Badge variant="warning" className="h-6 px-2 text-[11px]">
+                              {group.moderate} Moderate
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-slate-400 mt-2 sm:mt-0 flex items-center gap-2 text-sm">
+                        <span>Lihat Detail</span>
+                        {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      </div>
+                    </div>
+
+                    {/* Expanded Detail Table */}
+                    {isExpanded && (
+                      <div className="border-t border-slate-100 bg-slate-50/50 p-4">
+                        <div className="overflow-x-auto">
+                          <Table className="bg-white rounded border">
+                            <TableHeader>
+                              <TableRow className="bg-slate-50/80">
+                                <TableHead className="w-8">No</TableHead>
+                                <TableHead>Indikator</TableHead>
+                                <TableHead>Kategori</TableHead>
+                                <TableHead className="text-right">Self</TableHead>
+                                <TableHead className="text-right">Tim</TableHead>
+                                <TableHead className="text-right">Gap</TableHead>
+                                <TableHead>Flag</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {group.alerts.map((row: any, i: number) => (
+                                <TableRow
+                                  key={`${row.po_id}-${row.indicator_id}-${i}`}
+                                  className="cursor-pointer hover:bg-slate-50/60 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    router.push(`/dashboard/detail?po=${row.po_id}`);
+                                  }}
+                                >
+                                  <TableCell className="text-slate-400 text-xs">{i + 1}</TableCell>
+                                  <TableCell
+                                    className="text-slate-700 text-sm max-w-[200px] sm:max-w-[300px] truncate"
+                                    title={row.indicator_name}
+                                  >
+                                    {row.indicator_name}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant="secondary" className="text-[10px] font-medium text-slate-600 bg-slate-100">
+                                      {row.category}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right tabular-nums text-slate-600">
+                                    {row.avg_self?.toFixed(1) ?? "N/A"}
+                                  </TableCell>
+                                  <TableCell className="text-right tabular-nums font-medium text-slate-800">
+                                    {row.actual_score?.toFixed(2) ?? "N/A"}
+                                  </TableCell>
+                                  <TableCell className="text-right tabular-nums">
+                                    <span
+                                      className={
+                                        (row.gap_self_vs_actual ?? 0) > 0
+                                          ? "text-red-500 font-medium"
+                                          : "text-emerald-500 font-medium"
+                                      }
+                                    >
+                                      {(row.gap_self_vs_actual ?? 0) > 0 ? "+" : ""}
+                                      {row.gap_self_vs_actual?.toFixed(2) ?? "N/A"}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell>
+                                    {row.gap_flag === "critical" ? (
+                                      <Badge variant="destructive" className="text-[10px]">Critical</Badge>
+                                    ) : (
+                                      <Badge variant="warning" className="text-[10px]">Moderate</Badge>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>

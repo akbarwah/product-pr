@@ -37,6 +37,7 @@ import { RefreshCw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { createBrowserClient } from "@/lib/supabase";
+import { applyClientScoring } from "@/lib/scoring";
 import type { EvaluationPeriod, GapAnalysis, ProductOwner } from "@/lib/types";
 
 /* ============================================================
@@ -53,52 +54,6 @@ const ROLE_INDICATOR_MATRIX: Record<string, Set<number>> = {
   avg_qa: new Set([3, 5, 6, 7, 10, 12, 13]),
   avg_pm: new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
 };
-
-/* ============================================================
-   PEMBOBOTAN (WEIGHTING)
-   (sama persis dengan detail page)
-   ============================================================ */
-
-const CATEGORY_WEIGHTS: Record<string, { lead: number; team: number }> = {
-  "I. Strategic & Analytical Rigor": { lead: 0.5, team: 0.5 },
-  "II. Product Rigor & Specification": { lead: 0.3, team: 0.7 },
-  "III. Operational Execution": { lead: 0.3, team: 0.7 },
-  "IV. Stakeholder & Market Advocacy": { lead: 0.6, team: 0.4 },
-};
-
-function calculateWeightedScore(row: GapAnalysis): number | null {
-  const weights = CATEGORY_WEIGHTS[row.category];
-  if (!weights) return row.actual_score;
-
-  const leadScore = row.avg_lead_po ?? null;
-
-  const teamRoles: { key: string; value: number | null }[] = [
-    { key: "avg_sa", value: row.avg_sa ?? null },
-    { key: "avg_ui_ux", value: row.avg_ui_ux ?? null },
-    { key: "avg_dev", value: row.avg_dev ?? null },
-    { key: "avg_qa", value: row.avg_qa ?? null },
-    { key: "avg_pm", value: row.avg_pm ?? null },
-  ];
-
-  const validTeamScores = teamRoles
-    .filter((r) => {
-      const allowed = ROLE_INDICATOR_MATRIX[r.key];
-      return allowed?.has(row.indicator_id) && r.value !== null;
-    })
-    .map((r) => r.value as number);
-
-  const teamAvg =
-    validTeamScores.length > 0
-      ? validTeamScores.reduce((a, b) => a + b, 0) / validTeamScores.length
-      : null;
-
-  if (leadScore !== null && teamAvg !== null) {
-    return leadScore * weights.lead + teamAvg * weights.team;
-  }
-  if (leadScore !== null) return leadScore;
-  if (teamAvg !== null) return teamAvg;
-  return null;
-}
 
 /* ============================================================
    HEATMAP STYLE
@@ -168,29 +123,9 @@ export default function GapAnalysisPage() {
         .order("indicator_id");
       if (error) throw error;
 
-      // Terapkan pembobotan (sinkron dengan detail page)
+      // Terapkan pembobotan
       const rawData = (data as GapAnalysis[]) ?? [];
-      const weightedData = rawData.map((row) => {
-        const weightedScore = calculateWeightedScore(row);
-        const gap =
-          row.avg_self !== null && weightedScore !== null
-            ? row.avg_self - weightedScore
-            : null;
-
-        return {
-          ...row,
-          actual_score: weightedScore,
-          gap_self_vs_actual: gap,
-          gap_flag:
-            gap !== null
-              ? Math.abs(gap) >= 1.5
-                ? ("critical" as const)
-                : Math.abs(gap) >= 0.75
-                  ? ("moderate" as const)
-                  : ("consistent" as const)
-              : null,
-        };
-      });
+      const weightedData = applyClientScoring(rawData);
 
       setAllData(weightedData);
     } catch (err: any) {
@@ -578,30 +513,23 @@ export default function GapAnalysisPage() {
           {[
             {
               emoji: "🔴",
-              title: "Blind Spot",
-              subtitle: "Self >> Tim (gap ≥ +1.5)",
-              desc: "PO menilai dirinya lebih tinggi dari yang tim rasakan",
+              title: "Critical Gap",
+              subtitle: "Gap ≥ 1.5 atau ≤ -1.5",
+              desc: "Terdeteksi ada Blind Spot ekstrem (jika positif) atau Underconfident ekstrem (jika negatif).",
               bg: "bg-red-50 border-red-200",
             },
             {
-              emoji: "🔵",
-              title: "Low Confidence",
-              subtitle: "Self << Tim (gap ≤ -1.5)",
-              desc: "PO merendahkan dirinya, tim menilai lebih positif",
-              bg: "bg-blue-50 border-blue-200",
-            },
-            {
               emoji: "🟡",
-              title: "Perlu Alignment",
-              subtitle: "Lead PO ≠ Tim (gap ≥ 1.5)",
-              desc: "Perspektif strategis berbeda dari operasional",
+              title: "Moderate Gap",
+              subtitle: "Gap 0.75 s/d 1.49 (±)",
+              desc: "Ada selisih ekspektasi antara self-assessment dengan realita tim. Perlu diselaraskan.",
               bg: "bg-amber-50 border-amber-200",
             },
             {
               emoji: "🟢",
               title: "Konsisten",
-              subtitle: "gap < 1.0",
-              desc: "Persepsi selaras, performa terkonfirmasi",
+              subtitle: "Gap didalam rentang ±0.75",
+              desc: "Persepsi selaras antara PO dengan pandangan Tim. Performa objektif terkonfirmasi.",
               bg: "bg-green-50 border-green-200",
             },
           ].map((item) => (
