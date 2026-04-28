@@ -1253,8 +1253,8 @@ export default function DetailPOPage() {
                       {Object.keys(qualitativeByRole).map((role) => (
                         <div key={role} className="border rounded-lg bg-white overflow-hidden shadow-sm print:border-none print:shadow-none print:bg-transparent">
                           <div className="bg-slate-100 px-4 py-3 border-b flex justify-between items-center print:bg-transparent print:border-b-2 print:border-slate-800 print:px-0 print:py-2">
-                            <Badge variant="outline" className="capitalize text-sm font-semibold bg-white print:border-none print:text-base print:p-0 print:bg-transparent">
-                              Perspektif {role.replace("_", " ")}
+                            <Badge variant="outline" className="uppercase text-sm font-semibold bg-white print:border-none print:text-base print:p-0 print:bg-transparent">
+                              Perspektif {role.replace(/_/g, " ").toUpperCase()}
                             </Badge>
                             <Button
                               size="sm"
@@ -1311,35 +1311,40 @@ export default function DetailPOPage() {
                 SECTION 8: PRINT FOOTER / SIGNATURE (print only)
                 ============================================================ */}
             <div className="hidden print:block mt-8 pt-6 border-t-2 border-slate-300 print-no-break">
-              <div className="grid grid-cols-3 gap-8 text-center text-sm">
+              <div className="grid grid-cols-2 gap-12 text-center text-sm max-w-2xl mx-auto">
                 <div>
-                  <p className="text-slate-500 mb-12">Dinilai oleh:</p>
+                  <p className="text-slate-500 mb-2">Dinilai oleh:</p>
+
+                  {/* PANDUAN: Untuk menambahkan tanda tangan berupa gambar (digital signature), 
+                      Anda bisa mengganti div h-16 di bawah ini dengan tag img.
+                      Contoh: <img src="/ttd-cpo.png" className="h-16 mx-auto object-contain" alt="TTD CPO" />
+                  */}
+                  <img src="/ttd-cpo.png" className="h-16 mx-auto object-contain" alt="TTD CPO" />
+
+
                   <div className="border-t border-slate-400 pt-2 mx-8">
-                    <p className="font-medium text-slate-700">Lead / CPO</p>
+                    <p className="font-bold text-slate-800">M. Sulthan Farras</p>
+                    <p className="text-xs text-slate-500">Chief Product Officer</p>
                   </div>
                 </div>
                 <div>
-                  <p className="text-slate-500 mb-12">Mengetahui:</p>
+                  <p className="text-slate-500 mb-2">Mengetahui:</p>
+
+                  {/* PANDUAN: Untuk menambahkan tanda tangan berupa gambar (digital signature),
+                      Ganti div h-16 di bawah ini dengan tag img seperti contoh di atas.
+                  */}
+                  <img src="/ttd-hr.png" className="h-16 mx-auto object-contain" alt="TTD HR" />
+
+
                   <div className="border-t border-slate-400 pt-2 mx-8">
-                    <p className="font-medium text-slate-700">
-                      HR / People Ops
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-slate-500 mb-12">Product Owner:</p>
-                  <div className="border-t border-slate-400 pt-2 mx-8">
-                    <p className="font-medium text-slate-700">
-                      {selectedPO?.name ?? "-"}
-                    </p>
+                    <p className="font-bold text-slate-800">Akbar Wahyu Adi P.</p>
+                    <p className="text-xs text-slate-500">Human Resources</p>
                   </div>
                 </div>
               </div>
               <p className="text-[10px] text-slate-400 text-center mt-6">
-                Dokumen ini digenerate secara otomatis oleh Sistem Performance
-                Review Product |{" "}
-                {new Date().toLocaleDateString("id-ID")} | Halaman ini bersifat
-                rahasia.
+                Dokumen ini digenerate secara otomatis oleh Tamtech Performance
+                Review System{" "}
               </p>
             </div>
 
