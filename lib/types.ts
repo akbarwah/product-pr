@@ -101,3 +101,12 @@ export interface QualitativeNote {
 export interface ResponseStats {
   total_raters: number;
 }
+
+export interface POQualitativeSummary {
+  id: string;
+  po_id: string;
+  period_id: string;
+  role: string;
+  summary_text: string;
+  updated_at: string;
+}
